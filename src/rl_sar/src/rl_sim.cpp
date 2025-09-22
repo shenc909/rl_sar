@@ -404,6 +404,7 @@ void RL_Sim::RobotControl()
             this->control.navigation_mode = !this->control.navigation_mode;
             std::cout << std::endl << LOGGER::INFO << "Navigation mode: " << (this->control.navigation_mode ? "ON" : "OFF") << std::endl;
             this->control.current_keyboard = this->control.last_keyboard;
+            this->control.current_gamepad = this->control.last_gamepad;
         }
 
         this->GetState(&this->robot_state);
@@ -540,6 +541,7 @@ void RL_Sim::RunModel()
         }
 
         // this->TorqueProtect(this->output_dof_tau);
+        // this->AttitudeProtect(this->robot_state.imu.quaternion, 75.0f, 75.0f);
 
 #ifdef CSV_LOGGER
         torch::Tensor tau_est = torch::zeros({1, this->params.num_of_dofs});
