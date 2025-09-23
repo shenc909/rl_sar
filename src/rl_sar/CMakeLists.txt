@@ -109,8 +109,8 @@ if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
 endif()
 
 # unitree_sdk2-2.0.0
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
-add_subdirectory(library/thirdparty/unitree_sdk2-2.0.0)
+# set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
+# add_subdirectory(library/thirdparty/unitree_sdk2-2.0.0)
 
 # l4w4_sdk
 add_library(l4w4_sdk INTERFACE)
@@ -264,13 +264,32 @@ if(NOT USE_CMAKE)
     endif()
 endif()
 
+find_package(Threads REQUIRED)
+
 add_executable(rl_real_go2 src/rl_real_go2.cpp)
 target_link_libraries(rl_real_go2
     unitree_sdk2
     rl_sdk
     observation_buffer
     yaml-cpp
+    Threads::Threads
+    ddsc
+    ddscxx
 )
+
+# find_package(CycloneDDS REQUIRED)
+# # target_include_directories(rl_real_go2 PRIVATE ${CycloneDDS_INCLUDE_DIRS})
+# include_directories("/usr/local/include/ddscxx")
+# target_link_libraries(rl_real_go2 PRIVATE ${CycloneDDS_LIBRARIES})
+# find_package(CycloneDDS REQUIRED)
+target_include_directories(rl_real_go2 PUBLIC /usr/local/include/ddscxx /usr/local/include/ddsc)
+# target_link_libraries(rl_real_go2 PRIVATE Threads::Threads)
+
+# find_package(CycloneDDS REQUIRED)
+# message(STATUS "CycloneDDS_INCLUDE_DIRS: ${CycloneDDS_INCLUDE_DIRS}")
+# message(STATUS "CycloneDDS_LIBRARIES: ${CycloneDDS_LIBRARIES}")
+
+
 if(NOT USE_CMAKE)
     if($ENV{ROS_DISTRO} MATCHES "noetic")
         target_link_libraries(rl_real_go2 ${catkin_LIBRARIES})
@@ -289,7 +308,15 @@ target_link_libraries(rl_real_g1
     rl_sdk
     observation_buffer
     yaml-cpp
+    Threads::Threads
+    ddsc
+    ddscxx
 )
+
+# find_package(CycloneDDS REQUIRED)
+target_include_directories(rl_real_g1 PUBLIC /usr/local/include/ddscxx /usr/local/include/ddsc)
+# target_link_libraries(rl_real_g1 PRIVATE Threads::Threads)
+
 if(NOT USE_CMAKE)
     if($ENV{ROS_DISTRO} MATCHES "noetic")
         target_link_libraries(rl_real_g1 ${catkin_LIBRARIES})
