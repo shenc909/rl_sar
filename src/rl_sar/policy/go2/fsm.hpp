@@ -183,7 +183,8 @@ public:
         rl.episode_length_buf = 0;
 
         // read params from yaml
-        rl.config_name = "himloco";
+        // NOTE: Edit below to choose policy and config
+        rl.config_name = "dreamwaq";
         std::string robot_path = rl.robot_name + "/" + rl.config_name;
         try
         {
@@ -202,7 +203,7 @@ public:
 
     void Run() override
     {
-        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::flush;
+        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw <<"\n" << std::flush;
 
         torch::Tensor _output_dof_pos, _output_dof_vel;
         if (rl.output_dof_pos_queue.try_pop(_output_dof_pos) && rl.output_dof_vel_queue.try_pop(_output_dof_vel))

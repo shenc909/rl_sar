@@ -1,0 +1,61 @@
+# Copyright (c) 2024-2025 Ziqi Fan
+# SPDX-License-Identifier: Apache-2.0
+
+go2/dreamwaq:
+  model_name: "dreamwaq.pt"
+  num_observations: 45
+  observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions"]
+  observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
+  observations_history_priority: "time"  # "time" or "term" priority
+  clip_obs: 100.0
+  clip_actions_lower: [-10, -10, -10,
+                       -10, -10, -10,
+                       -10, -10, -10,
+                       -10, -10, -10]
+  clip_actions_upper: [10, 10, 10,
+                       10, 10, 10,
+                       10, 10, 10,
+                       10, 10, 10]
+  rl_kp: [25, 25, 25,
+          25, 25, 25,
+          25, 25, 25,
+          25, 25, 25]
+  rl_kd: [0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5]
+  fixed_kp: [30, 30, 30,
+          30, 30, 30,
+          30, 30, 30,
+          30, 30, 30]
+  fixed_kd: [0.8, 0.8, 0.8,
+          0.8, 0.8, 0.8,
+          0.8, 0.8, 0.8,
+          0.8, 0.8, 0.8]
+#   fixed_kp: [60, 60, 60,
+#              60, 60, 60,
+#              60, 60, 60,
+#              60, 60, 60]
+#   fixed_kd: [5, 5, 5,
+#              5, 5, 5,
+#              5, 5, 5,
+#              5, 5, 5]
+  num_of_dofs: 12
+  action_scale: [0.125, 0.125, 0.125,
+                 0.125, 0.25, 0.25,
+                 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 1.0
+  dof_pos_scale: 1.0
+  dof_vel_scale: 1.0
+  commands_scale: [1.0, 1.0, 1.0]
+  torque_limits: [23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5]
+  default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                    0.8000,  0.8000,  1.0000,  1.0000,
+                    -1.5000, -1.5000, -1.5000, -1.5000]
+  joint_mapping: [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8]
