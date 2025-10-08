@@ -4,6 +4,7 @@
  */
 
 #include "rl_sdk.hpp"
+// #define _OBS_DEBUG_PRINT
 
 void RL::StateController(const RobotState<double>* state, RobotCommand<double>* command)
 {
@@ -29,25 +30,47 @@ torch::Tensor RL::ComputeObservation()
 
     for (const std::string &observation : this->params.observations)
     {
-        if (observation == "lin_vel")
+        if (observation == "lin_vel_world")
         {
             obs_list.push_back(this->obs.lin_vel * this->params.lin_vel_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "lin_vel_world: " << this->obs.lin_vel * this->params.lin_vel_scale << std::endl;
+#endif
+        }
+        else if (observation == "lin_vel_body")
+        {
+            obs_list.push_back(this->QuatRotateInverse(this->obs.base_quat, this->obs.lin_vel) * this->params.lin_vel_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "lin_vel_body: " << this->QuatRotateInverse(this->obs.base_quat, this->obs.lin_vel) * this->params.lin_vel_scale << std::endl;
+#endif
         }
         else if (observation == "ang_vel_body")
         {
             obs_list.push_back(this->obs.ang_vel * this->params.ang_vel_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "ang_vel_body: " << this->obs.ang_vel * this->params.ang_vel_scale << std::endl;
+#endif
         }
         else if (observation == "ang_vel_world")
         {
             obs_list.push_back(this->QuatRotateInverse(this->obs.base_quat, this->obs.ang_vel) * this->params.ang_vel_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "ang_vel_world: " << this->QuatRotateInverse(this->obs.base_quat, this->obs.ang_vel) * this->params.ang_vel_scale << std::endl;
+#endif
         }
         else if (observation == "gravity_vec")
         {
             obs_list.push_back(this->QuatRotateInverse(this->obs.base_quat, this->obs.gravity_vec));
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "gravity_vec: " << this->QuatRotateInverse(this->obs.base_quat, this->obs.gravity_vec) << std::endl;
+#endif
         }
         else if (observation == "commands")
         {
             obs_list.push_back(this->obs.commands * this->params.commands_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "commands: " << this->obs.commands * this->params.commands_scale << std::endl;
+#endif
         }
         else if (observation == "dof_pos")
         {
@@ -57,14 +80,23 @@ torch::Tensor RL::ComputeObservation()
                 dof_pos_rel[0][i] = 0.0;
             }
             obs_list.push_back(dof_pos_rel * this->params.dof_pos_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "dof_pos: " << dof_pos_rel * this->params.dof_pos_scale << std::endl;
+#endif
         }
         else if (observation == "dof_vel")
         {
             obs_list.push_back(this->obs.dof_vel * this->params.dof_vel_scale);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "dof_vel: " << this->obs.dof_vel * this->params.dof_vel_scale << std::endl;
+#endif
         }
         else if (observation == "actions")
         {
             obs_list.push_back(this->obs.actions);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "actions: " << this->obs.actions << std::endl;
+#endif
         }
         else if (observation == "phase")
         {
@@ -98,6 +130,10 @@ torch::Tensor RL::ComputeObservation()
             torch::Tensor count = torch::tensor({{motion_time}});
             torch::Tensor phase = count / this->motion_length;
             obs_list.push_back(phase);
+        }
+        else if (observation == "height")
+        {
+            obs_list.push_back(torch::tensor({{0.4f}}));
         }
     }
 

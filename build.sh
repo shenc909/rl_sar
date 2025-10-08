@@ -119,6 +119,51 @@ run_ros_build() {
     print_success "ROS build completed!"
 }
 
+run_ros_build_debug() {
+    local packages=("$@")
+    local package_list=$(IFS=' '; echo "${packages[*]}")
+
+    print_header "[Running ROS Build with Debug Symbols]"
+
+    # Clean existing symlinks
+    clean_existing_symlinks "${packages[@]}"
+
+    # Detect incompatible artifacts
+    detect_incompatible_build_artifacts
+
+    # Create appropriate symlinks
+    if [ ${#packages[@]} -eq 0 ]; then
+        create_symlinks_for_all_packages
+    else
+        create_symlinks_for_specific_packages "${packages[@]}"
+    fi
+
+    # Execute build
+    if [ ${#packages[@]} -eq 0 ]; then
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building all packages..."
+            catkin build
+        else
+            print_header "[Using colcon build]"
+            print_info "Building all packages..."
+            colcon build --merge-install --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        fi
+    else
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building specific packages: $package_list"
+            catkin build $package_list
+        else
+            print_header "[Using colcon build]"
+            print_info "Building specific packages: $package_list"
+            colcon build --merge-install --symlink-install --packages-select $package_list --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        fi
+    fi
+
+    print_success "ROS build with debug symbols completed!"
+}
+
 # ========================
 # Clean Functions
 # ========================
@@ -331,12 +376,14 @@ main() {
     local packages=()
     local clean_mode=false
     local cmake_mode=false
+    local debug_mode=false
 
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -c|--clean) clean_mode=true; shift ;;
             -m|--cmake) cmake_mode=true; shift ;;
+            -d|--debug) debug_mode=true; shift ;;
             -h|--help) show_usage; exit 0 ;;
             --) shift; packages+=("$@"); break ;;
             -*) print_error "Unknown option: $1"; show_usage; exit 1 ;;
@@ -361,6 +408,11 @@ main() {
         print_error "ROS environment not detected. Please source your ROS setup.bash first."
         print_info "For hardware deployment, use the --cmake option instead."
         exit 1
+    fi
+
+    if [ "$debug_mode" = true ]; then
+        run_ros_build_debug "${packages[@]}"
+        exit 0
     fi
 
     run_ros_build "${packages[@]}"

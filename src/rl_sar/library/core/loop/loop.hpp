@@ -82,6 +82,8 @@ private:
                 {
                     break;
                 }
+            } else {
+                log("[Loop Warning] named: " + _name + " over time: " + std::to_string(elapsed.count()) + "(ms)");
             }
         }
     }

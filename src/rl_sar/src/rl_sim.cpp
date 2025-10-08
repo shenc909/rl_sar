@@ -281,6 +281,7 @@ void RL_Sim::GetState(RobotState<double> *state)
         state->motor_state.dq[i] = this->joint_velocities[this->params.joint_controller_names[this->params.joint_mapping[i]]];
         state->motor_state.tau_est[i] = this->joint_efforts[this->params.joint_controller_names[this->params.joint_mapping[i]]];
 #elif defined(USE_ROS2)
+        // state->motor_state is stored, converted to the order expected by the policy using joint_mapping
         state->motor_state.q[i] = this->robot_state_subscriber_msg.motor_state[this->params.joint_mapping[i]].q;
         state->motor_state.dq[i] = this->robot_state_subscriber_msg.motor_state[this->params.joint_mapping[i]].dq;
         state->motor_state.tau_est[i] = this->robot_state_subscriber_msg.motor_state[this->params.joint_mapping[i]].tau_est;
@@ -525,6 +526,7 @@ void RL_Sim::RunModel()
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
 
         this->obs.actions = this->Forward();
+        // std::cout << "actions: " << this->obs.actions << std::endl;
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);
 
         if (this->output_dof_pos.defined() && this->output_dof_pos.numel() > 0)
@@ -565,6 +567,7 @@ torch::Tensor RL_Sim::Forward()
     {
         this->history_obs_buf.insert(clamped_obs);
         this->history_obs = this->history_obs_buf.get_obs_vec(this->params.observations_history);
+        // std::cout << "history_obs: \n" << this->history_obs << std::endl;
         actions = this->model.forward({this->history_obs}).toTensor();
     }
     else
