@@ -53,11 +53,17 @@ public:
     RLFSMStateGetUp(RL *rl) : RLFSMState(*rl, "RLFSMStateGetUp") {}
 
     float pre_running_percent = 0.0f;
+    // std::vector<float> pre_running_pos = {
+    //     0.00, 1.36, -2.65,
+    //     0.00, 1.36, -2.65,
+    //     0.00, 1.36, -2.65,
+    //     0.00, 1.36, -2.65,
+    //     0.00, 0.00, 0.00, 0.00
+    // };
     std::vector<float> pre_running_pos = {
-        0.00, 1.36, -2.65,
-        0.00, 1.36, -2.65,
-        0.00, 1.36, -2.65,
-        0.00, 1.36, -2.65,
+        0.00, 0.00, 0.00, 0.00,
+        1.36, 1.36, 1.36, 1.36,
+        -2.65, -2.65, -2.65, -2.65,
         0.00, 0.00, 0.00, 0.00
     };
 
@@ -94,13 +100,14 @@ public:
 
             for (int i = 0; i < rl.params.num_of_dofs; ++i)
             {
-                fsm_command->motor_command.q[i] = (1 - rl.running_percent) * pre_running_pos[i] + rl.running_percent * rl.params.default_dof_pos[0][i].item<double>();
+                fsm_command->motor_command.q[i] = (1 - rl.running_percent) * pre_running_pos[i] + rl.running_percent * rl.params.init_dof_pos[0][i].item<double>();
                 fsm_command->motor_command.dq[i] = 0;
                 fsm_command->motor_command.kp[i] = rl.params.fixed_kp[0][i].item<double>();
                 fsm_command->motor_command.kd[i] = rl.params.fixed_kd[0][i].item<double>();
                 fsm_command->motor_command.tau[i] = 0;
             }
             std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "Getting up " << std::fixed << std::setprecision(2) << rl.running_percent * 100.0f << "%" << std::flush;
+            // std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "Reached Init Pos" << std::fixed << std::setprecision(2) << rl.robot_state.motor_state.q << std::flush;
         }
     }
 
@@ -178,9 +185,13 @@ class RLFSMStateRL_Locomotion : public RLFSMState
 public:
     RLFSMStateRL_Locomotion(RL *rl) : RLFSMState(*rl, "RLFSMStateRL_Locomotion") {}
 
+    float pre_running_percent = 0.0f;
+
     void Enter() override
     {
         rl.episode_length_buf = 0;
+        pre_running_percent = 0.0f;
+        rl.now_state = *fsm_state;
 
         // read params from yaml
         // NOTE: Edit below to choose policy and config
@@ -208,20 +219,42 @@ public:
         torch::Tensor _output_dof_pos, _output_dof_vel;
         if (rl.output_dof_pos_queue.try_pop(_output_dof_pos) && rl.output_dof_vel_queue.try_pop(_output_dof_vel))
         {
-            for (int i = 0; i < rl.params.num_of_dofs; ++i)
-            {
-                if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
+            // if (pre_running_percent < 1.0f)
+            // {
+            //     // pre_running_percent += 1.0f / 200.0f;
+            //     pre_running_percent = std::min(pre_running_percent, 1.0f);
+            //     std::cout << std::endl;
+            //     for (int i = 0; i < rl.params.num_of_dofs; ++i)
+            //     {
+            //         if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
+            //         {
+            //             fsm_command->motor_command.q[i] = (1 - pre_running_percent) * rl.params.init_dof_pos[0][i].item<double>() + pre_running_percent * rl.output_dof_pos[0][i].item<double>();
+            //             std::cout << fsm_command->motor_command.q[i];
+            //         }
+            //         fsm_command->motor_command.dq[i] = 0;
+            //         fsm_command->motor_command.kp[i] = rl.params.rl_kp[0][i].item<double>();
+            //         fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
+            //         fsm_command->motor_command.tau[i] = 0;
+            //     }
+            //     // std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "Pre-RL Takeover: " << std::fixed << std::setprecision(2) << pre_running_percent * 100.0f << "%" << std::flush;
+            // }
+            // else
+            // {
+                for (int i = 0; i < rl.params.num_of_dofs; ++i)
                 {
-                    fsm_command->motor_command.q[i] = rl.output_dof_pos[0][i].item<double>();
+                    if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
+                    {
+                        fsm_command->motor_command.q[i] = rl.output_dof_pos[0][i].item<double>();
+                    }
+                    if (_output_dof_vel.defined() && _output_dof_vel.numel() > 0)
+                    {
+                        fsm_command->motor_command.dq[i] = rl.output_dof_vel[0][i].item<double>();
+                    }
+                    fsm_command->motor_command.kp[i] = rl.params.rl_kp[0][i].item<double>();
+                    fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
+                    fsm_command->motor_command.tau[i] = 0;
                 }
-                if (_output_dof_vel.defined() && _output_dof_vel.numel() > 0)
-                {
-                    fsm_command->motor_command.dq[i] = rl.output_dof_vel[0][i].item<double>();
-                }
-                fsm_command->motor_command.kp[i] = rl.params.rl_kp[0][i].item<double>();
-                fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
-                fsm_command->motor_command.tau[i] = 0;
-            }
+            // }
         }
     }
 

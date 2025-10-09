@@ -163,8 +163,8 @@ Stephen Brawner (brawner@gmail.com)
     <parent link="FL_thigh" />
     <child link="FL_calf" />
     <axis xyz="0 1 0" />
-    <!-- <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="15.70" /> -->
-    <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" />
+    <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="30.1" />
+    <!-- <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" /> -->
   </joint>
   <link name="FL_calflower">
     <collision>
@@ -307,8 +307,8 @@ Stephen Brawner (brawner@gmail.com)
     <parent link="FR_thigh" />
     <child link="FR_calf" />
     <axis xyz="0 1 0" />
-    <!-- <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="15.70" /> -->
-    <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" />
+    <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="30.1" />
+    <!-- <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" /> -->
   </joint>
   <link name="FR_calflower">
     <collision>
@@ -451,8 +451,8 @@ Stephen Brawner (brawner@gmail.com)
     <parent link="RL_thigh" />
     <child link="RL_calf" />
     <axis xyz="0 1 0" />
-    <!-- <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="15.70" /> -->
-    <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" />
+    <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="30.1" />
+    <!-- <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" /> -->
   </joint>
   <link name="RL_calflower">
     <collision>
@@ -595,8 +595,8 @@ Stephen Brawner (brawner@gmail.com)
     <parent link="RR_thigh" />
     <child link="RR_calf" />
     <axis xyz="0 1 0" />
-    <!-- <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="15.70" /> -->
-    <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" />
+    <limit lower="-2.7227" upper="-0.83776" effort="45.43" velocity="30.1" />
+    <!-- <limit lower="-2.7227" upper="-0.83776" effort="23.7" velocity="15.70" /> -->
   </joint>
   <link name="RR_calflower">
     <collision>
