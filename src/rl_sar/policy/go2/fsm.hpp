@@ -214,32 +214,32 @@ public:
 
     void Run() override
     {
-        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw <<"\n" << std::flush;
+        // std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw <<"\n" << std::flush;
 
         torch::Tensor _output_dof_pos, _output_dof_vel;
         if (rl.output_dof_pos_queue.try_pop(_output_dof_pos) && rl.output_dof_vel_queue.try_pop(_output_dof_vel))
         {
-            // if (pre_running_percent < 1.0f)
-            // {
-            //     // pre_running_percent += 1.0f / 200.0f;
-            //     pre_running_percent = std::min(pre_running_percent, 1.0f);
-            //     std::cout << std::endl;
-            //     for (int i = 0; i < rl.params.num_of_dofs; ++i)
-            //     {
-            //         if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
-            //         {
-            //             fsm_command->motor_command.q[i] = (1 - pre_running_percent) * rl.params.init_dof_pos[0][i].item<double>() + pre_running_percent * rl.output_dof_pos[0][i].item<double>();
-            //             std::cout << fsm_command->motor_command.q[i];
-            //         }
-            //         fsm_command->motor_command.dq[i] = 0;
-            //         fsm_command->motor_command.kp[i] = rl.params.rl_kp[0][i].item<double>();
-            //         fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
-            //         fsm_command->motor_command.tau[i] = 0;
-            //     }
-            //     // std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "Pre-RL Takeover: " << std::fixed << std::setprecision(2) << pre_running_percent * 100.0f << "%" << std::flush;
-            // }
-            // else
-            // {
+            if (pre_running_percent < 1.0f)
+            {
+                pre_running_percent += 1.0f / 200.0f;
+                pre_running_percent = std::min(pre_running_percent, 1.0f);
+                std::cout << std::endl;
+                for (int i = 0; i < rl.params.num_of_dofs; ++i)
+                {
+                    if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
+                    {
+                        fsm_command->motor_command.q[i] = (1 - pre_running_percent) * rl.params.init_dof_pos[0][i].item<double>() + pre_running_percent * rl.output_dof_pos[0][i].item<double>();
+                        std::cout << fsm_command->motor_command.q[i];
+                    }
+                    fsm_command->motor_command.dq[i] = 0;
+                    fsm_command->motor_command.kp[i] = rl.params.rl_kp[0][i].item<double>();
+                    fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
+                    fsm_command->motor_command.tau[i] = 0;
+                }
+                std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "Pre-RL Takeover: " << std::fixed << std::setprecision(2) << pre_running_percent * 100.0f << "%" << std::flush;
+            }
+            else
+            {
                 for (int i = 0; i < rl.params.num_of_dofs; ++i)
                 {
                     if (_output_dof_pos.defined() && _output_dof_pos.numel() > 0)
@@ -254,7 +254,7 @@ public:
                     fsm_command->motor_command.kd[i] = rl.params.rl_kd[0][i].item<double>();
                     fsm_command->motor_command.tau[i] = 0;
                 }
-            // }
+            }
         }
     }
 
