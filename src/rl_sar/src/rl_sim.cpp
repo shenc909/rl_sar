@@ -411,6 +411,7 @@ void RL_Sim::RobotControl()
         this->GetState(&this->robot_state);
         this->StateController(&this->robot_state, &this->robot_command);
         this->SetCommand(&this->robot_command);
+        // std::cout << this->robot_command.motor_command.q << std::endl;
     }
 }
 

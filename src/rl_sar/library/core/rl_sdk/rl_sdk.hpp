@@ -150,6 +150,7 @@ struct ModelParams
     torch::Tensor fixed_kd;
     torch::Tensor commands_scale;
     torch::Tensor default_dof_pos;
+    torch::Tensor init_dof_pos;
     std::vector<std::string> joint_controller_names;
     std::vector<std::string> joint_names;
     std::vector<int> joint_mapping;
@@ -231,6 +232,7 @@ public:
     // protect func
     void TorqueProtect(torch::Tensor origin_output_dof_tau);
     void AttitudeProtect(const std::vector<double> &quaternion, float pitch_threshold, float roll_threshold);
+    void TorqueLimitViaDofPos(torch::Tensor &target_dof_pos, torch::Tensor &target_dof_vel, torch::Tensor &robot_dof_vel);
 
     // rl module
     torch::jit::script::Module model;

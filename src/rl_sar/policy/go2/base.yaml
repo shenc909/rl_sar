@@ -12,16 +12,34 @@ go2:
              3.0, 3.0, 3.0,
              3.0, 3.0, 3.0,
              3.0, 3.0, 3.0]
+  # fixed_kp: [25, 25, 25,
+  #           25, 25, 25,
+  #           25, 25, 25,
+  #           25, 25, 25]
+  # fixed_kd: [0.5, 0.5, 0.5,
+  #           0.5, 0.5, 0.5,
+  #           0.5, 0.5, 0.5,
+  #           0.5, 0.5, 0.5]
   num_of_dofs: 12
   wheel_indices: []
   torque_limits: [23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5]
-  default_dof_pos: [ 0.00, 0.80, -1.50,
-                     0.00, 0.80, -1.50,
-                     0.00, 0.80, -1.50,
-                     0.00, 0.80, -1.50]
+  default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                    0.8000,  0.8000,  1.0000,  1.0000,
+                    -1.5000, -1.5000, -1.5000, -1.5000]
+  init_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                 0.8000,  0.8000,  1.0000,  1.0000,
+                 -1.5000, -1.5000, -1.5000, -1.5000]
+  # default_dof_pos: [ 0.00, 0.80, -1.50,
+  #                    0.00, 0.80, -1.50,
+  #                    0.00, 0.80, -1.50,
+  #                    0.00, 0.80, -1.50]
+  # init_dof_pos: [ 0.00, 0.80, -1.50,
+  #                 0.00, 0.80, -1.50,
+  #                 0.00, 1.00, -1.50,
+  #                 0.00, 1.00, -1.50]
   joint_names: ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
                 "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
                 "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint",
@@ -30,4 +48,5 @@ go2:
                            "FL_hip_controller", "FL_thigh_controller", "FL_calf_controller",
                            "RR_hip_controller", "RR_thigh_controller", "RR_calf_controller",
                            "RL_hip_controller", "RL_thigh_controller", "RL_calf_controller"]
-  joint_mapping: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  # joint_mapping: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  joint_mapping: [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8]

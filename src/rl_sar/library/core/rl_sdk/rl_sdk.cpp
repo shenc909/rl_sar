@@ -272,6 +272,19 @@ void RL::TorqueProtect(torch::Tensor origin_output_dof_tau)
     }
 }
 
+void RL::TorqueLimitViaDofPos(torch::Tensor &target_dof_pos, torch::Tensor &target_dof_vel, torch::Tensor &robot_dof_vel)
+{
+    torch::Tensor torque = torch::abs(this->params.rl_kp * (target_dof_pos - this->obs.dof_pos) + this->params.rl_kd * (target_dof_vel - this->obs.dof_vel));
+    if (torch::any(torque > this->params.torque_limits).item<bool>())
+    {
+        std::cout << LOGGER::WARNING << "Torque limit detected! Clamping via dof_target" << std::endl;
+    }
+    torch::Tensor joint_vel_error = target_dof_vel - robot_dof_vel;
+    torch::Tensor upper_bound = (this->params.torque_limits - (joint_vel_error * this->params.rl_kd))/this->params.rl_kp;
+    torch::Tensor lower_bound = (-this->params.torque_limits - (joint_vel_error * this->params.rl_kd))/this->params.rl_kp;
+    target_dof_pos = torch::clamp(target_dof_pos, lower_bound, upper_bound);
+}
+
 void RL::AttitudeProtect(const std::vector<double> &quaternion, float pitch_threshold, float roll_threshold)
 {
     float rad2deg = 57.2958;
@@ -427,6 +440,7 @@ void RL::ReadYamlBase(std::string robot_path)
     this->params.fixed_kd = torch::tensor(ReadVectorFromYaml<double>(config["fixed_kd"])).view({1, -1});
     this->params.torque_limits = torch::tensor(ReadVectorFromYaml<double>(config["torque_limits"])).view({1, -1});
     this->params.default_dof_pos = torch::tensor(ReadVectorFromYaml<double>(config["default_dof_pos"])).view({1, -1});
+    this->params.init_dof_pos = torch::tensor(ReadVectorFromYaml<double>(config["init_dof_pos"])).view({1, -1});
     this->params.joint_names = ReadVectorFromYaml<std::string>(config["joint_names"]);
     this->params.joint_controller_names = ReadVectorFromYaml<std::string>(config["joint_controller_names"]);
     this->params.joint_mapping = ReadVectorFromYaml<int>(config["joint_mapping"]);
@@ -485,6 +499,7 @@ void RL::ReadYamlRL(std::string robot_path)
     this->params.fixed_kd = torch::tensor(ReadVectorFromYaml<double>(config["fixed_kd"])).view({1, -1});
     this->params.torque_limits = torch::tensor(ReadVectorFromYaml<double>(config["torque_limits"])).view({1, -1});
     this->params.default_dof_pos = torch::tensor(ReadVectorFromYaml<double>(config["default_dof_pos"])).view({1, -1});
+    this->params.init_dof_pos = torch::tensor(ReadVectorFromYaml<double>(config["init_dof_pos"])).view({1, -1});
     this->params.joint_mapping = ReadVectorFromYaml<int>(config["joint_mapping"]);
 }
 

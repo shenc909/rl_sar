@@ -260,6 +260,7 @@ void RL_Real::RunModel()
 
         if (this->output_dof_pos.defined() && this->output_dof_pos.numel() > 0)
         {
+            this->TorqueLimitViaDofPos(this->output_dof_pos, this->output_dof_vel, this->obs.dof_vel);
             output_dof_pos_queue.push(this->output_dof_pos);
         }
         if (this->output_dof_vel.defined() && this->output_dof_vel.numel() > 0)
