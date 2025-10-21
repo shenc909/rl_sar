@@ -260,7 +260,7 @@ void RL_Real::RunModel()
 
         if (this->output_dof_pos.defined() && this->output_dof_pos.numel() > 0)
         {
-            this->TorqueLimitViaDofPos(this->output_dof_pos, this->output_dof_vel, this->obs.dof_vel);
+            // this->TorqueLimitViaDofPos(this->output_dof_pos, this->output_dof_vel, this->obs.dof_vel);
             output_dof_pos_queue.push(this->output_dof_pos);
         }
         if (this->output_dof_vel.defined() && this->output_dof_vel.numel() > 0)
@@ -273,7 +273,7 @@ void RL_Real::RunModel()
         }
 
         // this->TorqueProtect(this->output_dof_tau);
-        // this->AttitudeProtect(this->robot_state.imu.quaternion, 75.0f, 75.0f);
+        this->AttitudeProtect(this->robot_state.imu.quaternion, 75.0f, 75.0f);
 
 #ifdef CSV_LOGGER
         torch::Tensor tau_est = torch::tensor(this->robot_state.motor_state.tau_est).unsqueeze(0);
