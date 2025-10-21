@@ -221,7 +221,7 @@ public:
         {
             if (pre_running_percent < 1.0f)
             {
-                pre_running_percent += 1.0f / 200.0f;
+                pre_running_percent += 1.0f / 100.0f;
                 pre_running_percent = std::min(pre_running_percent, 1.0f);
                 std::cout << std::endl;
                 for (int i = 0; i < rl.params.num_of_dofs; ++i)
