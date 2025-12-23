@@ -18,6 +18,10 @@ RL_Real::RL_Real(bool wheel_mode)
         "/cmd_vel", rclcpp::SystemDefaultsQoS(),
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
+    this->height_scan_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>(
+        "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
+        [this] (const std_msgs::msg::Float32MultiArray::SharedPtr msg) {this->HeightScanCallback(msg);}
+    );
 #endif
 
     // read params from yaml
@@ -255,6 +259,8 @@ void RL_Real::RunModel()
         this->obs.dof_pos = torch::tensor(this->robot_state.motor_state.q).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
 
+        this->obs.height_scan = torch::tensor(this->height_scan_obs).unsqueeze(0);
+
         this->obs.actions = this->Forward();
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);
 
@@ -447,6 +453,19 @@ void RL_Real::CmdvelCallback(
 )
 {
     this->cmd_vel = *msg;
+}
+#endif
+
+#if !defined(USE_CMAKE) && defined(USE_ROS) && defined(USE_ROS2)
+void RL_Real::HeightScanCallback(
+    const std_msgs::msg::Float32MultiArray::SharedPtr msg
+)
+{
+    this->height_scan = *msg;
+    for (size_t i = 0; i < msg->data.size(); ++i) {
+      RCLCPP_INFO(this->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
+      this->height_scan_obs[i] = msg->data[i];
+    }
 }
 #endif
 
