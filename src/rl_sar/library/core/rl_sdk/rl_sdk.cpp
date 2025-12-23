@@ -105,6 +105,13 @@ torch::Tensor RL::ComputeObservation()
             std::cout << "height_scan: " << this->obs.height_scan << std::endl;
 #endif
         }
+        else if (observation == "height_scan")
+        {
+            obs_list.push_back(this->obs.height_scan);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "height_scan: " << this->obs.height_scan << std::endl;
+#endif
+        }
         else if (observation == "phase")
         {
             float motion_time = this->episode_length_buf * this->params.dt * this->params.decimation;
@@ -140,7 +147,7 @@ torch::Tensor RL::ComputeObservation()
         }
         else if (observation == "height")
         {
-            obs_list.push_back(torch::tensor({{0.4f}}));
+            obs_list.push_back(torch::tensor({{0.31f}}));
         }
     }
 
@@ -165,7 +172,8 @@ void RL::InitObservations()
     this->obs.dof_pos = this->params.default_dof_pos;
     this->obs.dof_vel = torch::zeros({1, this->params.num_of_dofs});
     this->obs.actions = torch::zeros({1, this->params.num_of_dofs});
-    this->obs.height_scan = torch::ones({1, 187}) * 0.4f;
+    // this->obs.height_scan = torch::ones({1, 187}) * 0.31f;
+    this->obs.height_scan = torch::full({1, 187}, 0.31f); // initialize height_scan observation
     this->ComputeObservation();
 }
 

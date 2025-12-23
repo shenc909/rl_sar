@@ -5,6 +5,9 @@
 
 #include "rl_sim.hpp"
 
+#include <chrono>
+#include <ctime>
+
 RL_Sim::RL_Sim()
 #if defined(USE_ROS2)
     : rclcpp::Node("rl_sim_node")
@@ -525,6 +528,7 @@ void RL_Sim::RunModel()
         this->obs.base_quat = torch::tensor(this->robot_state.imu.quaternion).unsqueeze(0);
         this->obs.dof_pos = torch::tensor(this->robot_state.motor_state.q).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
+        this->obs.height_scan = torch::full({1, 187}, 0.31f); // dummy height scan data
 
         this->obs.actions = this->Forward();
         // std::cout << "actions: " << this->obs.actions << std::endl;
@@ -544,7 +548,7 @@ void RL_Sim::RunModel()
         }
 
         // this->TorqueProtect(this->output_dof_tau);
-        // this->AttitudeProtect(this->robot_state.imu.quaternion, 75.0f, 75.0f);
+        this->AttitudeProtect(this->robot_state.imu.quaternion, 75.0f, 75.0f);
 
 #ifdef CSV_LOGGER
         torch::Tensor tau_est = torch::zeros({1, this->params.num_of_dofs});
@@ -560,6 +564,7 @@ void RL_Sim::RunModel()
 torch::Tensor RL_Sim::Forward()
 {
     torch::autograd::GradMode::set_enabled(false);
+    std::cout << std::chrono::system_clock::now().time_since_epoch().count()<< std::endl;
 
     torch::Tensor clamped_obs = this->ComputeObservation();
 
