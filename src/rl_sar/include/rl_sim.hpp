@@ -42,6 +42,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <rcl_interfaces/srv/get_parameters.hpp>
+#include <gazebo_msgs/msg/model_states.hpp>
 #endif
 
 #include "matplotlibcpp.h"
@@ -98,10 +99,13 @@ private:
     void JoyCallback(const sensor_msgs::Joy::ConstPtr &msg);
 #elif defined(USE_ROS2)
     sensor_msgs::msg::Imu gazebo_imu;
+    geometry_msgs::msg::Pose pose;
     geometry_msgs::msg::Twist cmd_vel;
     sensor_msgs::msg::Joy joy_msg;
     robot_msgs::msg::RobotCommand robot_command_publisher_msg;
     robot_msgs::msg::RobotState robot_state_subscriber_msg;
+    gazebo_msgs::msg::ModelStates gazebo_model_states;
+    rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_state_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr gazebo_imu_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscriber;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
@@ -116,6 +120,7 @@ private:
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);
     void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
+    void ModelStatesCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg);
 #endif
 
     // others

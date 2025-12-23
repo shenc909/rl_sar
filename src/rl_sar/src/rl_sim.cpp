@@ -147,6 +147,11 @@ RL_Sim::RL_Sim()
         [this] (const robot_msgs::msg::RobotState::SharedPtr msg) {this->RobotStateCallback(msg);}
     );
 
+    this->model_state_subscriber = this->create_subscription<gazebo_msgs::msg::ModelStates>(
+        "/gazebo/model_states", rclcpp::SystemDefaultsQoS(),
+        [this] (const gazebo_msgs::msg::ModelStates::SharedPtr msg) {this->ModelStatesCallback(msg);}
+    );
+
     // service
     this->gazebo_pause_physics_client = this->create_client<std_srvs::srv::Empty>("/pause_physics");
     this->gazebo_unpause_physics_client = this->create_client<std_srvs::srv::Empty>("/unpause_physics");
@@ -429,6 +434,19 @@ void RL_Sim::GazeboImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
     this->gazebo_imu = *msg;
 }
+
+void RL_Sim::ModelStatesCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg)
+{
+    // find index of the robot in the model states
+    auto it = std::find(msg->name.begin(), msg->name.end(), "robot_model");
+    if (it != msg->name.end())
+    {
+        size_t index = std::distance(msg->name.begin(), it);
+        // this->vel = msg->twist[index];
+        this->pose = msg->pose[index];
+        // std::cout<<this->pose.position.z << std::endl;
+    }
+}
 #endif
 
 void RL_Sim::CmdvelCallback(
@@ -528,7 +546,7 @@ void RL_Sim::RunModel()
         this->obs.base_quat = torch::tensor(this->robot_state.imu.quaternion).unsqueeze(0);
         this->obs.dof_pos = torch::tensor(this->robot_state.motor_state.q).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
-        this->obs.height_scan = torch::full({1, 187}, 0.31f); // dummy height scan data
+        this->obs.height_scan = torch::full({1, 187}, this->pose.position.z); // dummy height scan data
 
         this->obs.actions = this->Forward();
         // std::cout << "actions: " << this->obs.actions << std::endl;
