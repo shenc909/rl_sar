@@ -6,7 +6,7 @@ go2/dreamwaq:
   num_observations: 45
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
   observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
-  observations_history_priority: "time"  # "time" or "term" priority
+  observations_history_priority: "term"  # "time" or "term" priority
   clip_obs: 100.0
   clip_actions_lower: [-10, -10, -10,
                        -10, -10, -10,
