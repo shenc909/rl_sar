@@ -105,6 +105,13 @@ torch::Tensor RL::ComputeObservation()
             std::cout << "height_scan: " << this->obs.height_scan << std::endl;
 #endif
         }
+        else if (observation == "height_scan")
+        {
+            obs_list.push_back(this->obs.height_scan);
+#ifdef _OBS_DEBUG_PRINT
+            std::cout << "height_scan: " << this->obs.height_scan << std::endl;
+#endif
+        }
         else if (observation == "phase")
         {
             float motion_time = this->episode_length_buf * this->params.dt * this->params.decimation;
