@@ -166,6 +166,7 @@ struct Observations
     torch::Tensor dof_pos;
     torch::Tensor dof_vel;
     torch::Tensor actions;
+    torch::Tensor height_scan;
 };
 
 class RL

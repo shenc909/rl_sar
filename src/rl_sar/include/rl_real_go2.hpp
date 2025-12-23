@@ -31,6 +31,7 @@
 #elif defined(USE_ROS2) && defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 #endif
 
 #include "matplotlibcpp.h"
@@ -120,6 +121,8 @@ private:
     std::vector<double> mapped_joint_positions;
     std::vector<double> mapped_joint_velocities;
 
+    std::vector<float> height_scan_obs = std::vector<float>(187, 0.4);
+
 #if defined(USE_ROS1) && defined(USE_ROS)
     geometry_msgs::Twist cmd_vel;
     ros::Subscriber cmd_vel_subscriber;
@@ -128,6 +131,9 @@ private:
     geometry_msgs::msg::Twist cmd_vel;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    std_msgs::msg::Float32MultiArray height_scan;
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
+    void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 #endif
 };
 
