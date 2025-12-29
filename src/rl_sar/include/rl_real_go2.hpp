@@ -134,6 +134,7 @@ private:
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+    double last_height_scan_time = 0.0;
 #endif
 };
 

@@ -260,6 +260,10 @@ void RL_Real::RunModel()
         this->obs.dof_vel = torch::tensor(this->robot_state.motor_state.dq).narrow(0, 0, this->params.num_of_dofs).unsqueeze(0);
 
         this->obs.height_scan = torch::tensor(this->height_scan_obs).unsqueeze(0);
+        double height_scan_time_diff = this->now().seconds() - this->last_height_scan_time;
+        if (height_scan_time_diff > 0.3) {
+            RCLCPP_WARN(this->get_logger(), "Height map data stale, rate < 3.3Hz! Staleness: %f s", height_scan_time_diff);
+        }
 
         this->obs.actions = this->Forward();
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);
@@ -463,8 +467,10 @@ void RL_Real::HeightScanCallback(
 {
     this->height_scan = *msg;
     for (size_t i = 0; i < msg->data.size(); ++i) {
-      RCLCPP_INFO(this->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
-      this->height_scan_obs[i] = msg->data[i];
+    //   RCLCPP_INFO(this->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
+        // RCLCPP_INFO(this->get_logger(), "HM Received! Timestamp: %f", this->now().seconds());
+        this->last_height_scan_time = this->now().seconds();
+        this->height_scan_obs[i] = msg->data[i];
     }
 }
 #endif
