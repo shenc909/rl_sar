@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 go2/dreamwaq:
-  model_name: "dreamwaq_train2full.pt"
+  model_name: "dreamwaq_noisy_hm.pt"
   num_observations: 45
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
   observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
