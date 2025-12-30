@@ -121,7 +121,7 @@ private:
     std::vector<double> mapped_joint_positions;
     std::vector<double> mapped_joint_velocities;
 
-    std::vector<float> height_scan_obs = std::vector<float>(187, 0.4);
+    std::vector<float> height_scan_obs = std::vector<float>(187, 0.31f);
 
 #if defined(USE_ROS1) && defined(USE_ROS)
     geometry_msgs::Twist cmd_vel;
