@@ -467,11 +467,11 @@ void RL_Real::HeightScanCallback(
 {
     this->height_scan = *msg;
     for (size_t i = 0; i < msg->data.size(); ++i) {
-    //   RCLCPP_INFO(this->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
+        RCLCPP_INFO(this->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
         // RCLCPP_INFO(this->get_logger(), "HM Received! Timestamp: %f", this->now().seconds());
-        this->last_height_scan_time = this->now().seconds();
         this->height_scan_obs[i] = msg->data[i];
     }
+    this->last_height_scan_time = this->now().seconds();
 }
 #endif
 

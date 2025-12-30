@@ -104,13 +104,7 @@ torch::Tensor RL::ComputeObservation()
 #ifdef _OBS_DEBUG_PRINT
             std::cout << "height_scan: " << this->obs.height_scan << std::endl;
 #endif
-        }
-        else if (observation == "height_scan")
-        {
             obs_list.push_back(torch::clamp(this->obs.height_scan, -2.0f, 2.0f));
-#ifdef _OBS_DEBUG_PRINT
-            std::cout << "height_scan: " << this->obs.height_scan << std::endl;
-#endif
         }
         else if (observation == "phase")
         {
