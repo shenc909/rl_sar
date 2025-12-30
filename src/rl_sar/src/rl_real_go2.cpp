@@ -261,8 +261,8 @@ void RL_Real::RunModel()
 
         this->obs.height_scan = torch::tensor(this->height_scan_obs).unsqueeze(0);
         double height_scan_time_diff = this->now().seconds() - this->last_height_scan_time;
-        if (height_scan_time_diff > 0.3) {
-            RCLCPP_WARN(this->get_logger(), "Height map data stale, rate < 3.3Hz! Staleness: %f s", height_scan_time_diff);
+        if (height_scan_time_diff > 0.2) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Height map data stale, rate < 5Hz! Staleness: %f s", height_scan_time_diff);
         }
 
         this->obs.actions = this->Forward();
