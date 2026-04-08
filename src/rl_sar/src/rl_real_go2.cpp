@@ -248,7 +248,17 @@ void RL_Real::RunModel()
         if (this->control.navigation_mode)
         {
 #if !defined(USE_CMAKE) && defined(USE_ROS)
-            this->obs.commands = torch::tensor({{this->cmd_vel.linear.x, this->cmd_vel.linear.y, this->cmd_vel.angular.z}});
+            double cmd_x = this->cmd_vel.linear.x;
+            double cmd_y = this->cmd_vel.linear.y;
+            double cmd_yaw = this->cmd_vel.angular.z;
+            double cmd_vel_time_diff = this->now().seconds() - this->last_cmd_vel_time;
+            if (cmd_vel_time_diff > 0.2)
+            {
+                cmd_x = 0.0;
+                cmd_y = 0.0;
+                cmd_yaw = 0.0;
+            }
+            this->obs.commands = torch::tensor({{cmd_x, cmd_y, cmd_yaw}});
 #endif
         }
         else
@@ -457,6 +467,7 @@ void RL_Real::CmdvelCallback(
 )
 {
     this->cmd_vel = *msg;
+    this->last_cmd_vel_time = this->now().seconds();
 }
 #endif
 
