@@ -114,6 +114,7 @@ RL_Real::~RL_Real()
 
 void RL_Real::GetState(RobotState<double> *state)
 {
+    this->control.SetGamepad(Input::Gamepad::None); // reset gamepad state
     if (this->unitree_joy.components.A) this->control.SetGamepad(Input::Gamepad::A);
     if (this->unitree_joy.components.B) this->control.SetGamepad(Input::Gamepad::B);
     if (this->unitree_joy.components.X) this->control.SetGamepad(Input::Gamepad::X);
@@ -231,9 +232,12 @@ void RL_Real::RobotControl()
         this->control.navigation_mode = !this->control.navigation_mode;
         std::cout << std::endl << LOGGER::INFO << "Navigation mode: " << (this->control.navigation_mode ? "ON" : "OFF") << std::endl;
         this->control.current_keyboard = this->control.last_keyboard;
-        this->control.last_gamepad = this->control.current_gamepad;
+        // this->control.last_gamepad = this->control.current_gamepad;
     }
-    this->control.last_gamepad = Input::Gamepad::None;
+    // this->control.last_gamepad = Input::Gamepad::None;
+    this->control.last_gamepad = this->control.current_gamepad;
+    // this->control.current_gamepad = Input::Gamepad::None;
+    
 
     this->GetState(&this->robot_state);
     this->StateController(&this->robot_state, &this->robot_command);
