@@ -226,12 +226,12 @@ void RL_Real::RobotControl()
         this->control.yaw = 0;
         this->control.current_keyboard = this->control.last_keyboard;
     }
-    if (this->control.current_keyboard == Input::Keyboard::N || this->control.current_gamepad == Input::Gamepad::X)
+    if (this->control.current_keyboard == Input::Keyboard::N || (this->control.current_gamepad == Input::Gamepad::X && this->control.last_gamepad != Input::Gamepad::X))
     {
         this->control.navigation_mode = !this->control.navigation_mode;
         std::cout << std::endl << LOGGER::INFO << "Navigation mode: " << (this->control.navigation_mode ? "ON" : "OFF") << std::endl;
         this->control.current_keyboard = this->control.last_keyboard;
-        this->control.current_gamepad = this->control.last_gamepad;
+        this->control.last_gamepad = this->control.current_gamepad;
     }
 
     this->GetState(&this->robot_state);
