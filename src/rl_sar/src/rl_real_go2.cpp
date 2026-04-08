@@ -233,6 +233,7 @@ void RL_Real::RobotControl()
         this->control.current_keyboard = this->control.last_keyboard;
         this->control.last_gamepad = this->control.current_gamepad;
     }
+    this->control.last_gamepad = this->control.current_gamepad;
 
     this->GetState(&this->robot_state);
     this->StateController(&this->robot_state, &this->robot_command);
