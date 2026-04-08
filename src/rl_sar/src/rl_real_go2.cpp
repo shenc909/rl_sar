@@ -257,6 +257,7 @@ void RL_Real::RunModel()
                 cmd_x = 0.0;
                 cmd_y = 0.0;
                 cmd_yaw = 0.0;
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "cmd_vel data stale, setting to zero!");
             }
             this->obs.commands = torch::tensor({{cmd_x, cmd_y, cmd_yaw}});
 #endif
