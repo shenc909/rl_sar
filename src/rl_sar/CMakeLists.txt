@@ -72,6 +72,9 @@ if(NOT USE_CMAKE)
         find_package(gazebo_msgs REQUIRED)
         find_package(std_srvs REQUIRED)
         find_package(geometry_msgs REQUIRED)
+        find_package(unitree_go REQUIRED)
+        find_package(unitree_hg REQUIRED)
+        find_package(unitree_api REQUIRED)
         ament_package()
     endif()
     add_compile_options(${GAZEBO_CXX_FLAGS})
@@ -154,6 +157,7 @@ endif()
 
 include_directories(
     include
+    include/go2
     library/core/matplotlibcpp
     library/core/observation_buffer
     library/core/rl_sdk
@@ -275,6 +279,7 @@ find_package(Threads REQUIRED)
 # message(STATUS "CycloneDDS_INCLUDE_DIRS: ${CycloneDDS_INCLUDE_DIRS}")
 # message(STATUS "CycloneDDS_LIBRARIES: ${CycloneDDS_LIBRARIES}")
 
+
 add_executable(rl_real_go2 src/rl_real_go2.cpp)
 target_link_libraries(rl_real_go2
     unitree_sdk2
@@ -286,13 +291,26 @@ target_link_libraries(rl_real_go2
     # ddscxx
 )
 
-# find_package(CycloneDDS REQUIRED)
-# # target_include_directories(rl_real_go2 PRIVATE ${CycloneDDS_INCLUDE_DIRS})
-# include_directories("/usr/local/include/ddscxx")
-# target_link_libraries(rl_real_go2 PRIVATE ${CycloneDDS_LIBRARIES})
-# find_package(CycloneDDS REQUIRED)
-# target_include_directories(rl_real_go2 PUBLIC /usr/local/include/ddscxx /usr/local/include/ddsc)
-# target_link_libraries(rl_real_go2 PRIVATE Threads::Threads)
+
+    add_executable(rl_real_go2_ros2 src/rl_real_go2_ros2.cpp)
+    target_link_libraries(rl_real_go2_ros2
+        # unitree_sdk2
+        rl_sdk
+        observation_buffer
+        yaml-cpp
+        # Threads::Threads
+        # ddsc
+        # ddscxx
+    )
+    ament_target_dependencies(rl_real_go2_ros2
+        rclcpp
+        geometry_msgs
+        sensor_msgs
+        unitree_go
+        unitree_hg
+        unitree_api
+    )
+    install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
 
 
 if(NOT USE_CMAKE)

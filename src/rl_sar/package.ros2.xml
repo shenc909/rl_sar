@@ -20,6 +20,9 @@
     <depend>controller_manager</depend>
     <depend>joint_state_controller</depend>
     <depend>robot_state_publisher</depend>
+    <depend>unitree_go</depend>
+    <depend>unitree_hg</depend>
+    <depend>unitree_api</depend>
     <depend>rospy</depend>
 
     <export>
