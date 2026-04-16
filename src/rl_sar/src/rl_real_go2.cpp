@@ -15,13 +15,36 @@ RL_Real::RL_Real(bool wheel_mode)
     this->cmd_vel_subscriber = nh.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &RL_Real::CmdvelCallback, this);
 #elif defined(USE_ROS2) && defined(USE_ROS)
     this->cmd_vel_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/cmd_vel", rclcpp::SystemDefaultsQoS(),
+        "/go2_1/cmd_vel", rclcpp::SystemDefaultsQoS(),
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
     this->height_scan_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>(
         "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
         [this] (const std_msgs::msg::Float32MultiArray::SharedPtr msg) {this->HeightScanCallback(msg);}
     );
+    this->joint_state_publisher = this->create_publisher<sensor_msgs::msg::JointState>("/go2_1/joint_states", rclcpp::SystemDefaultsQoS());
+    joint_state_msg.name = {
+        "FR_hip_joint",
+        "FR_thigh_joint", 
+        "FR_calf_joint", 
+        "FL_hip_joint", 
+        "FL_thigh_joint", 
+        "FL_calf_joint", 
+        "RR_hip_joint", 
+        "RR_thigh_joint", 
+        "RR_calf_joint", 
+        "RL_hip_joint", 
+        "RL_thigh_joint", 
+        "RL_calf_joint"
+    };
+
+    this->imu_state_publisher = this->create_publisher<sensor_msgs::msg::Imu>("/go2_1/imu", rclcpp::SystemDefaultsQoS());
+    imu_msg.header.frame_id = "imu_link";
+
+    this->foot_force_publisher = this->create_publisher<std_msgs::msg::Int16MultiArray>("/go2_1/foot_force", rclcpp::SystemDefaultsQoS());
+    this->foot_force_msg.data.resize(4);
+    // foot_force_msg.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
+
 #endif
 
     // read params from yaml
@@ -189,6 +212,7 @@ void RL_Real::SetCommand(const RobotCommand<double> *command)
 void RL_Real::RobotControl()
 {
     this->motiontime++;
+    const double now_sec = this->now().seconds();
 
     if (this->control.current_keyboard == Input::Keyboard::W)
     {
@@ -227,18 +251,17 @@ void RL_Real::RobotControl()
         this->control.yaw = 0;
         this->control.current_keyboard = this->control.last_keyboard;
     }
-    if (this->control.current_keyboard == Input::Keyboard::N || (this->control.current_gamepad == Input::Gamepad::X && this->control.last_gamepad != Input::Gamepad::X))
+    if ((this->control.current_keyboard == Input::Keyboard::N || this->control.current_gamepad == Input::Gamepad::X)
+        && (now_sec - this->last_navigation_toggle_time >= this->navigation_toggle_debounce_sec))
     {
         this->control.navigation_mode = !this->control.navigation_mode;
+        this->last_navigation_toggle_time = now_sec;
         std::cout << std::endl << LOGGER::INFO << "Navigation mode: " << (this->control.navigation_mode ? "ON" : "OFF") << std::endl;
         this->control.current_keyboard = this->control.last_keyboard;
-        // this->control.last_gamepad = this->control.current_gamepad;
+        // this->control.current_gamepad = this->control.last_gamepad;
     }
-    // this->control.last_gamepad = Input::Gamepad::None;
-    this->control.last_gamepad = this->control.current_gamepad;
-    // this->control.current_gamepad = Input::Gamepad::None;
     
-
+    this->control.last_gamepad = this->control.current_gamepad; // update last gamepad state for debouncing
     this->GetState(&this->robot_state);
     this->StateController(&this->robot_state, &this->robot_command);
     this->SetCommand(&this->robot_command);
@@ -455,6 +478,41 @@ std::string RL_Real::QueryServiceName(std::string form, std::string name)
 void RL_Real::LowStateMessageHandler(const void *message)
 {
     this->unitree_low_state = *(unitree_go::msg::dds_::LowState_ *)message;
+
+#if defined(USE_ROS2) && defined(USE_ROS)
+    // publish joint states for ROS2 ecosystem
+    this->joint_state_msg.header.stamp = this->now();
+    this->joint_state_msg.position.clear();
+    this->joint_state_msg.velocity.clear();
+    for (int i = 0; i < this->params.num_of_dofs; ++i)
+    {
+        this->joint_state_msg.position.push_back(this->unitree_low_state.motor_state()[i].q());
+        this->joint_state_msg.velocity.push_back(this->unitree_low_state.motor_state()[i].dq());
+        this->joint_state_msg.effort.push_back(this->unitree_low_state.motor_state()[i].tau_est());
+    }
+    this->joint_state_publisher->publish(this->joint_state_msg);
+
+    this->imu_msg.header.stamp = this->now();
+    this->imu_msg.orientation.w = this->unitree_low_state.imu_state().quaternion()[0];
+    this->imu_msg.orientation.x = this->unitree_low_state.imu_state().quaternion()[1];
+    this->imu_msg.orientation.y = this->unitree_low_state.imu_state().quaternion()[2];
+    this->imu_msg.orientation.z = this->unitree_low_state.imu_state().quaternion()[3];
+    this->imu_msg.angular_velocity.x = this->unitree_low_state.imu_state().gyroscope()[0];
+    this->imu_msg.angular_velocity.y = this->unitree_low_state.imu_state().gyroscope()[1];
+    this->imu_msg.angular_velocity.z = this->unitree_low_state.imu_state().gyroscope()[2];
+    this->imu_msg.linear_acceleration.x = this->unitree_low_state.imu_state().accelerometer()[0];
+    this->imu_msg.linear_acceleration.y = this->unitree_low_state.imu_state().accelerometer()[1];
+    this->imu_msg.linear_acceleration.z = this->unitree_low_state.imu_state().accelerometer()[2];
+    
+    this->imu_state_publisher->publish(this->imu_msg);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        this->foot_force_msg.data[i] = this->unitree_low_state.foot_force()[i];
+    }
+    this->foot_force_publisher->publish(this->foot_force_msg);
+
+#endif
 }
 
 void RL_Real::JoystickHandler(const void *message)

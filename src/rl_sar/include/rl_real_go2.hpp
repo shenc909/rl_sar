@@ -32,6 +32,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+
 #endif
 
 #include "matplotlibcpp.h"
@@ -132,10 +136,18 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     double last_cmd_vel_time = 0.0;
+    double last_navigation_toggle_time = 0.0;
+    const double navigation_toggle_debounce_sec = 0.5;
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
     double last_height_scan_time = 0.0;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher;
+    sensor_msgs::msg::JointState joint_state_msg;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_state_publisher;
+    sensor_msgs::msg::Imu imu_msg;
+    std_msgs::msg::Int16MultiArray foot_force_msg;
+    rclcpp::Publisher<std_msgs::msg::Int16MultiArray>::SharedPtr foot_force_publisher;
 #endif
 };
 

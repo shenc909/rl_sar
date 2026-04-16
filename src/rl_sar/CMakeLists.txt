@@ -65,6 +65,7 @@ if(NOT USE_CMAKE)
         find_package(rclcpp REQUIRED)
         find_package(gazebo_ros REQUIRED)
         find_package(std_msgs REQUIRED)
+        find_package(sensor_msgs REQUIRED)
         find_package(robot_msgs REQUIRED)
         find_package(robot_joint_controller REQUIRED)
         find_package(rclpy REQUIRED)
@@ -301,6 +302,7 @@ if(NOT USE_CMAKE)
         ament_target_dependencies(rl_real_go2
             rclcpp
             geometry_msgs
+            sensor_msgs
         )
         install(TARGETS rl_real_go2 DESTINATION lib/${PROJECT_NAME})
     endif()
