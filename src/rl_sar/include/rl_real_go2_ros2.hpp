@@ -100,8 +100,8 @@ private:
     int QueryMotionStatus();
     std::string QueryServiceName(std::string form, std::string name);
     uint32_t Crc32Core(uint32_t *ptr, uint32_t len);
-    void LowStateMessageHandler(const void *messages);
-    void JoystickHandler(const void *message);
+    void LowStateMessageHandler(const unitree_go::msg::LowState::SharedPtr message);
+    void JoystickHandler(const unitree_go::msg::WirelessController::SharedPtr message);
     MotionSwitchClient msc;
     unitree_go::msg::LowCmd unitree_low_command{};
     unitree_go::msg::LowState unitree_low_state{};
@@ -112,6 +112,12 @@ private:
     // ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher;
     // ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber;
     // ChannelSubscriberPtr<unitree_go::msg::dds_::WirelessController_> joystick_subscriber;
+    rclcpp::Publisher<unitree_go::msg::LowCmd>::SharedPtr lowcmd_publisher;
+    unitree_go::msg::LowCmd low_cmd_msg{};
+    rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr lowstate_subscriber;
+    unitree_go::msg::LowState low_state_msg{};
+    rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr joystick_subscriber;
+    unitree_go::msg::WirelessController joystick_msg{};
     xKeySwitchUnion unitree_joy;
 
     // others

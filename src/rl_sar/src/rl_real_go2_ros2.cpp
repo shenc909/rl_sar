@@ -8,15 +8,6 @@
 RL_Real::RL_Real(bool wheel_mode)
     : rclcpp::Node("rl_real_node"), msc(this)
 {
-    this->cmd_vel_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/go2_1/cmd_vel", rclcpp::SystemDefaultsQoS(),
-        [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
-    );
-    this->height_scan_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>(
-        "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
-        [this] (const std_msgs::msg::Float32MultiArray::SharedPtr msg) {this->HeightScanCallback(msg);}
-    );
-
     // read params from yaml
     this->ang_vel_type = "ang_vel_body";
     this->robot_name = wheel_mode ? "go2w" : "go2";
@@ -44,18 +35,38 @@ RL_Real::RL_Real(bool wheel_mode)
     this->InitLowCmd();
     this->InitOutputs();
     this->InitControl();
-    // create lowcmd publisher
-    // this->lowcmd_publisher.reset(new ChannelPublisher<unitree_go::msg::dds_::LowCmd_>(TOPIC_LOWCMD));
-    // this->lowcmd_publisher->InitChannel();
-    // create lowstate subscriber
-    // this->lowstate_subscriber.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(TOPIC_LOWSTATE));
-    // this->lowstate_subscriber->InitChannel(std::bind(&RL_Real::LowStateMessageHandler, this, std::placeholders::_1), 1);
-    // create joystick subscriber
-    // this->joystick_subscriber.reset(new ChannelSubscriber<unitree_go::msg::dds_::WirelessController_>(TOPIC_JOYSTICK));
-    // this->joystick_subscriber->InitChannel(std::bind(&RL_Real::JoystickHandler, this, std::placeholders::_1), 1);
+
+    // lowstate subscriber
+    this->lowstate_subscriber = this->create_subscription<unitree_go::msg::LowState>(
+        TOPIC_LOWSTATE, rclcpp::SystemDefaultsQoS(),
+        std::bind(&RL_Real::LowStateMessageHandler, this, std::placeholders::_1)
+    );
+
+    // joystick subscriber
+    this->joystick_subscriber = this->create_subscription<unitree_go::msg::WirelessController>(
+        TOPIC_JOYSTICK, rclcpp::SystemDefaultsQoS(),
+        std::bind(&RL_Real::JoystickHandler, this, std::placeholders::_1)
+    );
+
+    // lowcmd publisher
+    this->lowcmd_publisher = this->create_publisher<unitree_go::msg::LowCmd>(TOPIC_LOWCMD, rclcpp::SystemDefaultsQoS());
+
+    // cmd_vel subscriber
+    this->cmd_vel_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
+        "/go2_1/cmd_vel", rclcpp::SystemDefaultsQoS(),
+        [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
+    );
+
+    // height_scan subscriber
+    this->height_scan_subscriber = this->create_subscription<std_msgs::msg::Float32MultiArray>(
+        "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
+        [this] (const std_msgs::msg::Float32MultiArray::SharedPtr msg) {this->HeightScanCallback(msg);}
+    );
+
     // init MotionSwitcherClient
     // this->msc.SetTimeout(10.0f);
     // this->msc.Init();
+
     // Shut down motion control-related service
     while(this->QueryMotionStatus())
     {
@@ -96,9 +107,44 @@ RL_Real::RL_Real(bool wheel_mode)
 
 RL_Real::~RL_Real()
 {
-    this->loop_keyboard->shutdown();
-    this->loop_control->shutdown();
+    // kill RL and control loops first
     this->loop_rl->shutdown();
+    this->loop_control->shutdown();
+    this->loop_keyboard->shutdown();
+
+    bool return_to_llc = true;
+    std::string user_input;
+    std::cout << "Return to built-in LLC mode (mcf) before exit? [Y/n]: " << std::flush;
+    if (std::getline(std::cin, user_input))
+    {
+        const auto first_non_ws = user_input.find_first_not_of(" \t\r\n");
+        if (first_non_ws != std::string::npos)
+        {
+            const char answer = user_input[first_non_ws];
+            if (answer == 'n' || answer == 'N')
+            {
+                return_to_llc = false;
+            }
+        }
+    }
+
+    if (return_to_llc)
+    {
+        const int32_t ret = this->msc.SelectMode("mcf");
+        if (ret == 0)
+        {
+            std::cout << "SelectMode(\"mcf\") succeeded." << std::endl;
+        }
+        else
+        {
+            std::cout << "SelectMode(\"mcf\") failed. Error code: " << ret << std::endl;
+        }
+    }
+    else
+    {
+        std::cout << "Skip returning to built-in LLC mode." << std::endl;
+    }
+    
 #ifdef PLOT
     this->loop_plot->shutdown();
 #endif
@@ -142,24 +188,24 @@ void RL_Real::GetState(RobotState<double> *state)
     if (this->unitree_joy.components.R1 && this->unitree_joy.components.right) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if (this->unitree_joy.components.L1 && this->unitree_joy.components.R1) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-    this->control.x = this->joystick.ly();
-    this->control.y = -this->joystick.lx();
-    this->control.yaw = -this->joystick.rx();
+    this->control.x = this->joystick.ly;
+    this->control.y = -this->joystick.lx;
+    this->control.yaw = -this->joystick.rx;
 
-    state->imu.quaternion[0] = this->unitree_low_state.imu_state().quaternion()[0]; // w
-    state->imu.quaternion[1] = this->unitree_low_state.imu_state().quaternion()[1]; // x
-    state->imu.quaternion[2] = this->unitree_low_state.imu_state().quaternion()[2]; // y
-    state->imu.quaternion[3] = this->unitree_low_state.imu_state().quaternion()[3]; // z
+    state->imu.quaternion[0] = this->unitree_low_state.imu_state.quaternion[0]; // w
+    state->imu.quaternion[1] = this->unitree_low_state.imu_state.quaternion[1]; // x
+    state->imu.quaternion[2] = this->unitree_low_state.imu_state.quaternion[2]; // y
+    state->imu.quaternion[3] = this->unitree_low_state.imu_state.quaternion[3]; // z
 
     for (int i = 0; i < 3; ++i)
     {
-        state->imu.gyroscope[i] = this->unitree_low_state.imu_state().gyroscope()[i];
+        state->imu.gyroscope[i] = this->unitree_low_state.imu_state.gyroscope[i];
     }
     for (int i = 0; i < this->params.num_of_dofs; ++i)
     {
-        state->motor_state.q[i] = this->unitree_low_state.motor_state()[this->params.joint_mapping[i]].q();
-        state->motor_state.dq[i] = this->unitree_low_state.motor_state()[this->params.joint_mapping[i]].dq();
-        state->motor_state.tau_est[i] = this->unitree_low_state.motor_state()[this->params.joint_mapping[i]].tau_est();
+        state->motor_state.q[i] = this->unitree_low_state.motor_state[this->params.joint_mapping[i]].q;
+        state->motor_state.dq[i] = this->unitree_low_state.motor_state[this->params.joint_mapping[i]].dq;
+        state->motor_state.tau_est[i] = this->unitree_low_state.motor_state[this->params.joint_mapping[i]].tau_est;
     }
 }
 
@@ -167,16 +213,16 @@ void RL_Real::SetCommand(const RobotCommand<double> *command)
 {
     for (int i = 0; i < this->params.num_of_dofs; ++i)
     {
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].mode() = 0x01;
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].q() = command->motor_command.q[i];
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].dq() = command->motor_command.dq[i];
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].kp() = command->motor_command.kp[i];
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].kd() = command->motor_command.kd[i];
-        this->unitree_low_command.motor_cmd()[this->params.joint_mapping[i]].tau() = command->motor_command.tau[i];
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].mode = 0x01;
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].q = command->motor_command.q[i];
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].dq = command->motor_command.dq[i];
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].kp = command->motor_command.kp[i];
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].kd = command->motor_command.kd[i];
+        this->unitree_low_command.motor_cmd[this->params.joint_mapping[i]].tau = command->motor_command.tau[i];
     }
 
-    this->unitree_low_command.crc() = Crc32Core((uint32_t *)&unitree_low_command, (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
-    lowcmd_publisher->Write(unitree_low_command);
+    this->unitree_low_command.crc = Crc32Core((uint32_t *)&unitree_low_command, (sizeof(unitree_go::msg::LowCmd) >> 2) - 1);
+    lowcmd_publisher->publish(unitree_low_command);
 }
 
 void RL_Real::RobotControl()
@@ -337,8 +383,8 @@ void RL_Real::Plot()
     {
         this->plot_real_joint_pos[i].erase(this->plot_real_joint_pos[i].begin());
         this->plot_target_joint_pos[i].erase(this->plot_target_joint_pos[i].begin());
-        this->plot_real_joint_pos[i].push_back(this->unitree_low_state.motor_state()[i].q());
-        this->plot_target_joint_pos[i].push_back(this->unitree_low_command.motor_cmd()[i].q());
+        this->plot_real_joint_pos[i].push_back(this->unitree_low_state.motor_state[i].q);
+        this->plot_target_joint_pos[i].push_back(this->unitree_low_command.motor_cmd[i].q);
         plt::subplot(this->params.num_of_dofs, 1, i + 1);
         plt::named_plot("_real_joint_pos", this->plot_t, this->plot_real_joint_pos[i], "r");
         plt::named_plot("_target_joint_pos", this->plot_t, this->plot_target_joint_pos[i], "b");
@@ -384,19 +430,19 @@ uint32_t RL_Real::Crc32Core(uint32_t *ptr, uint32_t len)
 
 void RL_Real::InitLowCmd()
 {
-    this->unitree_low_command.head()[0] = 0xFE;
-    this->unitree_low_command.head()[1] = 0xEF;
-    this->unitree_low_command.level_flag() = 0xFF;
-    this->unitree_low_command.gpio() = 0;
+    this->unitree_low_command.head[0] = 0xFE;
+    this->unitree_low_command.head[1] = 0xEF;
+    this->unitree_low_command.level_flag = 0xFF;
+    this->unitree_low_command.gpio = 0;
 
     for (int i = 0; i < 20; ++i)
     {
-        this->unitree_low_command.motor_cmd()[i].mode() = (0x01); // motor switch to servo (PMSM) mode
-        this->unitree_low_command.motor_cmd()[i].q() = (PosStopF);
-        this->unitree_low_command.motor_cmd()[i].kp() = (0);
-        this->unitree_low_command.motor_cmd()[i].dq() = (VelStopF);
-        this->unitree_low_command.motor_cmd()[i].kd() = (0);
-        this->unitree_low_command.motor_cmd()[i].tau() = (0);
+        this->unitree_low_command.motor_cmd[i].mode = (0x01); // motor switch to servo (PMSM) mode
+        this->unitree_low_command.motor_cmd[i].q = (PosStopF);
+        this->unitree_low_command.motor_cmd[i].kp = (0);
+        this->unitree_low_command.motor_cmd[i].dq = (VelStopF);
+        this->unitree_low_command.motor_cmd[i].kd = (0);
+        this->unitree_low_command.motor_cmd[i].tau = (0);
     }
 }
 
@@ -443,15 +489,15 @@ std::string RL_Real::QueryServiceName(std::string form, std::string name)
     return "";
 }
 
-void RL_Real::LowStateMessageHandler(const void *message)
+void RL_Real::LowStateMessageHandler(const unitree_go::msg::LowState::SharedPtr message)
 {
-    this->unitree_low_state = *(unitree_go::msg::dds_::LowState_ *)message;
+    this->unitree_low_state = *message;
 }
 
-void RL_Real::JoystickHandler(const void *message)
+void RL_Real::JoystickHandler(const unitree_go::msg::WirelessController::SharedPtr message)
 {
-    joystick = *(unitree_go::msg::dds_::WirelessController_ *)message;
-    this->unitree_joy.value = joystick.keys();
+    joystick = *message;
+    this->unitree_joy.value = joystick.keys;
 }
 
 void RL_Real::CmdvelCallback(
@@ -477,14 +523,13 @@ void RL_Real::HeightScanCallback(
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc < 1)
     {
-        std::cout << "Usage: " << argv[0] << " networkInterface [wheel]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " [wheel]" << std::endl;
         exit(-1);
     }
-    // ChannelFactory::Instance()->Init(0, argv[1]);
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RL_Real>(argc > 2 && std::string(argv[2]) == "wheel"));
+    rclcpp::spin(std::make_shared<RL_Real>(argc > 1 && std::string(argv[1]) == "wheel"));
     rclcpp::shutdown();
     return 0;
 }

@@ -27,8 +27,6 @@ class BaseClient {
 
   rclcpp::CallbackGroup::SharedPtr sub_group_;
   rclcpp::SubscriptionOptions sub_opts_;
-  std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
-  std::thread spin_thread_;
 
   std::atomic<uint64_t> current_request_id_{0};
   std::mutex call_mutex_;
@@ -48,12 +46,6 @@ public:
   }
 
   ~BaseClient() {
-    if (executor_) {
-      executor_->cancel();
-    }
-    if (spin_thread_.joinable()) {
-      spin_thread_.join();
-    }
   }
 
   int32_t Call(Request req, nlohmann::json& js) {
@@ -110,12 +102,6 @@ private:
           this->OnResponseReceived(data);
         },
         sub_opts_);
-
-    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
-    executor_->add_node(node_->get_node_base_interface());
-    spin_thread_ = std::thread([this]() {
-      executor_->spin();
-    });
 
     WaitForConnection();
   }
