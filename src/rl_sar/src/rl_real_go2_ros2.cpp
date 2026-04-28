@@ -5,6 +5,19 @@
 
 #include "rl_real_go2_ros2.hpp"
 
+#include <atomic>
+#include <csignal>
+
+#include <rclcpp/executors/single_threaded_executor.hpp>
+
+namespace {
+std::atomic<bool> g_sigint_requested{false};
+
+void SigintHandler(int) {
+    g_sigint_requested.store(true);
+}
+}  // namespace
+
 RL_Real::RL_Real(bool wheel_mode)
     : rclcpp::Node("rl_real_node"), msc(this)
 {
@@ -79,6 +92,7 @@ RL_Real::RL_Real(bool wheel_mode)
         else
         {
             std::cout << "ReleaseMode failed. Error code: " << ret << std::endl;
+            throw std::runtime_error("Failed to release motion control-related service. Please rerun again.");
         }
         sleep(1);
     }
@@ -108,10 +122,21 @@ RL_Real::RL_Real(bool wheel_mode)
 RL_Real::~RL_Real()
 {
     // kill RL and control loops first
+    // this->loop_rl->shutdown();
+    // this->loop_control->shutdown();
+    // this->loop_keyboard->shutdown();
+    
+#ifdef PLOT
+    this->loop_plot->shutdown();
+#endif
+    std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
+}
+
+void RL_Real::ReturnToBuiltInLLCMode()
+{
     this->loop_rl->shutdown();
     this->loop_control->shutdown();
     this->loop_keyboard->shutdown();
-
     bool return_to_llc = true;
     std::string user_input;
     std::cout << "Return to built-in LLC mode (mcf) before exit? [Y/n]: " << std::flush;
@@ -144,11 +169,6 @@ RL_Real::~RL_Real()
     {
         std::cout << "Skip returning to built-in LLC mode." << std::endl;
     }
-    
-#ifdef PLOT
-    this->loop_plot->shutdown();
-#endif
-    std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
 }
 
 void RL_Real::GetState(RobotState<double> *state)
@@ -480,6 +500,7 @@ std::string RL_Real::QueryServiceName(std::string form, std::string name)
         if (name == "normal" )   return "sport_mode";
         if (name == "ai" )       return "ai_sport";
         if (name == "advanced" ) return "advanced_sport";
+        if (name == "mcf" ) return "rl_mode";
     }
     else
     {
@@ -528,8 +549,27 @@ int main(int argc, char **argv)
         std::cout << "Usage: " << argv[0] << " [wheel]" << std::endl;
         exit(-1);
     }
+
+    // Keep ROS context alive through node destruction so destructor-time
+    // service calls (e.g. SelectMode("mcf")) can still execute on Ctrl-C.
+    // Use a plain init call for broad distro compatibility, then override
+    // SIGINT handling to stop spinning before calling rclcpp::shutdown().
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RL_Real>(argc > 1 && std::string(argv[1]) == "wheel"));
+    std::signal(SIGINT, SigintHandler);
+
+    auto node = std::make_shared<RL_Real>(argc > 1 && std::string(argv[1]) == "wheel");
+    // rclcpp::executors::SingleThreadedExecutor executor;
+    // executor.add_node(node);
+
+    while (rclcpp::ok() && !g_sigint_requested.load())
+    {
+        // executor.spin_some(std::chrono::milliseconds(50));
+        rclcpp::spin_some(node);
+    }
+
+    node->ReturnToBuiltInLLCMode();
+    // executor.remove_node(node);
+    node.reset();
     rclcpp::shutdown();
     return 0;
 }

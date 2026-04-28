@@ -38,9 +38,11 @@ class MotionSwitchClient {
 
     nlohmann::json js_res;
     auto result = base_client_.Call(req, js_res);
-    if (result == 0) {
+    if (result == 0 && js_res.contains("name") && js_res.contains("form")) {
       js_res["name"].get_to(name);
       js_res["form"].get_to(form);
+    } else if (result == 0) {
+      return UT_ROBOT_TASK_UNKNOWN_ERROR;
     }
     return result;
   }
@@ -75,8 +77,10 @@ class MotionSwitchClient {
 
     nlohmann::json js_res;
     auto result = base_client_.Call(req, js_res);
-    if (result == 0) {
+    if (result == 0 && js_res.contains("silent")) {
       js_res["silent"].get_to(silent);
+    } else if (result == 0) {
+      return UT_ROBOT_TASK_UNKNOWN_ERROR;
     }
     return result;
   }

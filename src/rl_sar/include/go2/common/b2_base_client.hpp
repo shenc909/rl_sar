@@ -45,9 +45,6 @@ public:
     InitRosComm();
   }
 
-  ~BaseClient() {
-  }
-
   int32_t Call(Request req, nlohmann::json& js) {
     std::lock_guard<std::mutex> call_lock(call_mutex_);
     ResetState();
@@ -56,31 +53,50 @@ public:
     current_request_id_.store(req.header.identity.id);
 
     req_puber_->publish(req);
-    std::unique_lock<std::mutex> response_lock(response_mutex_);
     auto start_time = std::chrono::steady_clock::now();
     const std::chrono::seconds timeout(5);
 
-    if (response_cv_.wait_for(response_lock, timeout, [this]() { 
-        return response_ready_; 
-    })) {
-
-        if (!received_response_) {
+    // Actively process callbacks while waiting so responses can be handled
+    // even before the external executor starts spinning.
+    while (std::chrono::steady_clock::now() - start_time < timeout) {
+      {
+        std::unique_lock<std::mutex> response_lock(response_mutex_);
+        if (response_cv_.wait_for(response_lock, std::chrono::milliseconds(10), [this]() {
+              return response_ready_;
+            })) {
+          if (!received_response_) {
             return UT_ROBOT_TASK_UNKNOWN_ERROR;
-        }
+          }
 
-        if (received_response_->header.status.code != 0) {
+          if (received_response_->header.status.code != 0) {
             return received_response_->header.status.code;
-        }
+          }
 
-        try {
-            js = nlohmann::json::parse(received_response_->data.data());
-            auto end_time = std::chrono::steady_clock::now();
-            auto wait_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+          try {
+            if (received_response_->data.empty()) {
+              js = nlohmann::json::object();
+            } else {
+              js = nlohmann::json::parse(received_response_->data.data());
+            }
             return UT_ROBOT_SUCCESS;
-        } catch (const nlohmann::detail::exception& e) {
+          } catch (const nlohmann::detail::exception& e) {
             return UT_ROBOT_TASK_UNKNOWN_ERROR;
+          }
         }
-    } else {
+      }
+
+      if (!rclcpp::ok()) {
+        return UT_ROBOT_TASK_UNKNOWN_ERROR;
+      }
+
+      try {
+        rclcpp::spin_some(node_->get_node_base_interface());
+      } catch (const rclcpp::exceptions::RCLError &) {
+        return UT_ROBOT_TASK_UNKNOWN_ERROR;
+      }
+    }
+
+    {
         return UT_ROBOT_TASK_TIMEOUT;
     }
   }
@@ -127,10 +143,6 @@ private:
     if (expected_id != 0 && resp_id == expected_id) {
         {
             std::lock_guard<std::mutex> lk(response_mutex_);
-            if (data->data.empty()) {
-                response_ready_ = false;
-                return;
-            }
             received_response_ = data;
             response_ready_ = true;
         }

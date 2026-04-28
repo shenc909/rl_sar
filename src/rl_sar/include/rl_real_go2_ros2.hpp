@@ -74,6 +74,7 @@ class RL_Real : public RL
 public:
     RL_Real(bool wheel_mode);
     ~RL_Real();
+    void ReturnToBuiltInLLCMode();
 
 private:
     // rl functions
