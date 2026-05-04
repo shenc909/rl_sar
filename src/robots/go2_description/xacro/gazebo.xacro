@@ -72,7 +72,6 @@
 
 
 
-
     <!-- Foot contacts. -->
     <gazebo reference="FR_calf">
         <sensor name="FR_foot_contact" type="contact">
@@ -247,6 +246,30 @@
     <gazebo>
         <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
             <parameters>$(find go2_description)/config/robot_control_ros2.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+    <gazebo>
+        <plugin name="gazebo_ros_p3d" filename="libgazebo_ros_p3d.so">
+            <ros>
+            <!-- Namespace and remapping -->
+            <namespace>/robot</namespace>
+            <remapping>odom:=p3d_demo</remapping>
+            </ros>
+
+            <!-- The name of the link within the robot to track -->
+            <body_name>base</body_name>
+
+            <!-- Reference frame for the position (usually "world") -->
+            <frame_name>world</frame_name>
+
+            <!-- Update rate in Hz (0.0 for as fast as possible) -->
+            <update_rate>30.0</update_rate>
+
+            <!-- Gaussian noise to add to the published state -->
+            <xyz_offset>0 0 0</xyz_offset>
+            <rpy_offset>0 0 0</rpy_offset>
+            <gaussian_noise>0.01</gaussian_noise>
         </plugin>
     </gazebo>
 
