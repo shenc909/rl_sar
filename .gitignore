@@ -17,6 +17,7 @@ __pycache__
 
 # IDE
 .vscode
+CLAUDE.md
 
 # OS
 .DS_Store
