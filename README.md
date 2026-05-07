@@ -8,8 +8,6 @@
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-orange.svg?logo=mujoco)](https://mujoco.org/)
 [![License](https://img.shields.io/badge/license-Apache2.0-yellow.svg?logo=apache)](https://opensource.org/license/apache-2-0)
 
-[中文文档](README_CN.md)
-
 This repository provides a framework for simulation verification and physical deployment of robot reinforcement learning algorithms, suitable for quadruped robots, wheeled robots, and humanoid robots. "sar" stands for "simulation and real"
 
 > Supports both **IsaacGym** and **IsaacSim**
@@ -49,8 +47,6 @@ Support List:
 >
 > The order of joints in robot_lab cfg file `joint_names` is the same as that defined in `xxx/robot_lab/config.yaml` in this project.
 >
-> Discuss in [Github Discussion](https://github.com/fan-ziqi/rl_sar/discussions) or [Discord](http://www.robotsfan.com/dc_rl_sar).
-
 > [!CAUTION]
 > **Disclaimer: User acknowledges that all risks and consequences arising from using this code shall be solely borne by the user, the author assumes no liability for any direct or indirect damages, and proper safety measures must be implemented prior to operation.**
 
@@ -59,7 +55,7 @@ Support List:
 Clone the repository
 
 ```bash
-git clone --recursive --depth 1 https://github.com/fan-ziqi/rl_sar.git
+git clone --recursive --depth 1 https://github.com/shenc909/rl_sar.git
 ```
 
 To update

@@ -36,6 +36,8 @@
 #elif defined(USE_ROS2)
 #include "robot_msgs/msg/robot_command.hpp"
 #include "robot_msgs/msg/robot_state.hpp"
+#include "robot_msgs/msg/fsm_state.hpp"
+#include "robot_msgs/srv/set_fsm_state.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -63,6 +65,7 @@ private:
     std::vector<float> Forward() override;
     void GetState(RobotState<float> *state) override;
     void SetCommand(const RobotCommand<float> *command) override;
+    void OnConfigSwitched() override;
     void RunModel();
     void RobotControl();
 
@@ -114,6 +117,8 @@ private:
     rclcpp::Publisher<robot_msgs::msg::RobotCommand>::SharedPtr robot_command_publisher;
     rclcpp::Subscription<robot_msgs::msg::RobotState>::SharedPtr robot_state_subscriber;
     rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr param_client;
+    rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
+    rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
     void GazeboImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);

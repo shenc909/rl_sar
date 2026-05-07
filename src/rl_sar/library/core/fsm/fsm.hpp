@@ -6,11 +6,18 @@
 #include <unordered_map>
 #include <memory>
 #include <vector>
+#include <functional>
 #include "logger.hpp"
 
 class FSMState
 {
 public:
+    struct ChangeDecision
+    {
+        bool allowed;
+        std::string reason;
+    };
+
     FSMState(std::string name) : state_name_(std::move(name)) {}
     virtual ~FSMState() = default;
 
@@ -18,6 +25,15 @@ public:
     virtual void Run() = 0;
     virtual void Exit() = 0;
     virtual std::string CheckChange() { return state_name_; }
+
+    // Default: permissive. Subclasses tighten by overriding to enforce
+    // legal transitions for external (non-input-driven) requesters such as
+    // the ROS service. The keyboard/gamepad path goes through CheckChange()
+    // and is unaffected by this hook.
+    virtual ChangeDecision CanTransitionTo(const std::string& /*target*/) const
+    {
+        return {true, ""};
+    }
 
     const std::string &GetStateName() const { return state_name_; }
 
@@ -28,6 +44,8 @@ protected:
 class FSM
 {
 public:
+    using TransitionCallback = std::function<void(const std::string& current_state)>;
+
     FSM() : current_state_(nullptr), next_state_(nullptr), previous_state_(nullptr), mode_(Mode::NORMAL) {}
 
     void AddState(std::shared_ptr<FSMState> state)
@@ -41,6 +59,16 @@ public:
         current_state_->Enter();
         next_state_ = current_state_;
         std::cout << LOGGER::INFO << "[FSM] Set initial state: " << name << std::endl;
+    }
+
+    bool HasState(const std::string& state_name) const
+    {
+        return states_.find(state_name) != states_.end();
+    }
+
+    void SetTransitionCallback(TransitionCallback cb)
+    {
+        on_transition_ = std::move(cb);
     }
 
     void RequestStateChange(const std::string& state_name)
@@ -85,11 +113,15 @@ public:
 
             // Check if Enter() triggered another state change request
             if (mode_ == Mode::CHANGE && next_state_ != expected_state) {
-                // Enter() requested a new state change, return and process it in next cycle
+                // Enter() requested a new state change, return and process it in
+                // next cycle. Don't fire the callback for this transient state —
+                // the next pass through Mode::CHANGE will fire for the rerouted
+                // target after its Enter() runs.
                 return;
             }
 
             mode_ = Mode::NORMAL;
+            if (on_transition_) on_transition_(current_state_->GetStateName());
             current_state_->Run();
         }
     }
@@ -105,6 +137,9 @@ public:
     std::shared_ptr<FSMState> next_state_;
     std::shared_ptr<FSMState> previous_state_;
     Mode mode_;
+
+private:
+    TransitionCallback on_transition_;
 };
 
 class FSMFactory

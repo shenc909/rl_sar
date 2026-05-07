@@ -300,9 +300,37 @@ static void RemapJointVector(std::vector<float>& v,
 
 void RL::SwitchToConfig(const std::string& robot_config_path)
 {
+    // Hold output_mutex for the *entire* switch so RunModel either:
+    //   (a) hadn't started its inference cycle yet — its try-to-lock will fail
+    //       while we're swapping params; the cycle is skipped; or
+    //   (b) was already mid-cycle when we tried to switch — its lock prevents
+    //       us from advancing until it finishes its push. The push lands in
+    //       the queue under OLD params/order, but our drain below clears it
+    //       before any post-switch RunModel sees the queue.
+    std::lock_guard<std::mutex> swap_lock(this->output_mutex);
+
     auto old_jm = this->params.Get<std::vector<int>>("joint_mapping");
+
+    // Reset the params node and re-base. Without this, keys present in the
+    // previous policy's config but absent from the new one leak through
+    // (e.g. dreamwaq's `explicit_joint_names` survives into robot_lab and
+    // makes AutoGenerateJointMapping override robot_lab's [0..11] joint_mapping
+    // with dreamwaq's permutation, scattering joint commands).
+    this->params.config_node = YAML::Node();
+    this->ReadYaml(this->robot_name, "base.yaml");
+
     this->InitRL(robot_config_path);
     auto new_jm = this->params.Get<std::vector<int>>("joint_mapping");
+
+    // Drain output queues — any items present here are stale: either pushed by
+    // the previous policy in OLD training order, or pushed by an in-flight
+    // cycle that finished before we acquired output_mutex.
+    {
+        std::vector<float> tmp;
+        while (this->output_dof_pos_queue.try_pop(tmp)) {}
+        while (this->output_dof_vel_queue.try_pop(tmp)) {}
+        while (this->output_dof_tau_queue.try_pop(tmp)) {}
+    }
 
     if (old_jm != new_jm)
     {
@@ -318,13 +346,31 @@ void RL::SwitchToConfig(const std::string& robot_config_path)
         RemapJointVector(ms.tau_est, old_jm, new_jm);
     }
     this->now_state = this->robot_state;
+    this->OnConfigSwitched();
 }
 
 void RL::SwitchToBase()
 {
+    // Same rationale as SwitchToConfig: hold output_mutex through the param
+    // swap + joint-mapping remap so a concurrent RunModel cycle can't read
+    // half-remapped state or push outputs computed against mismatched params.
+    std::lock_guard<std::mutex> swap_lock(this->output_mutex);
+
     auto old_jm = this->params.Get<std::vector<int>>("joint_mapping");
+    // Reset params so policy-specific keys from the previously-active config
+    // (e.g. explicit_joint_names) don't survive into intermediate states like
+    // GetUp / GetDown.
+    this->params.config_node = YAML::Node();
     this->ReadYaml(this->robot_name, "base.yaml");
     auto new_jm = this->params.Get<std::vector<int>>("joint_mapping");
+
+    // Drain queues for the same reason as SwitchToConfig.
+    {
+        std::vector<float> tmp;
+        while (this->output_dof_pos_queue.try_pop(tmp)) {}
+        while (this->output_dof_vel_queue.try_pop(tmp)) {}
+        while (this->output_dof_tau_queue.try_pop(tmp)) {}
+    }
 
     if (old_jm != new_jm)
     {

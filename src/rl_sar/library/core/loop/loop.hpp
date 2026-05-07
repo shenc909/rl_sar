@@ -60,6 +60,13 @@ public:
         std::cout << LOGGER::INFO << "[Loop] Loop end - name: " << _name << std::endl;
     }
 
+    void SetPeriod(float period)
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _period = period;
+        _cv.notify_one();
+    }
+
 private:
     std::string _name;
     float _period;

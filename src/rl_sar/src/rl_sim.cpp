@@ -147,6 +147,61 @@ RL_Sim::RL_Sim(int argc, char **argv)
 
     auto empty_request = std::make_shared<std_srvs::srv::Empty::Request>();
     auto result = this->gazebo_reset_world_client->async_send_request(empty_request);
+
+    // FSM state-change service + latched current-state topic. Names use the
+    // sim's ros_namespace so multi-robot setups (e.g. /go2_1/, /g1_1/) namespace
+    // cleanly; with the default empty namespace they resolve to /set_fsm_state
+    // and /fsm_state.
+    {
+        const auto latched_qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
+        this->fsm_state_publisher = ros2_node->create_publisher<robot_msgs::msg::FsmState>(
+            this->ros_namespace + "fsm_state", latched_qos);
+    }
+    this->fsm_set_state_service = ros2_node->create_service<robot_msgs::srv::SetFsmState>(
+        this->ros_namespace + "set_fsm_state",
+        [this] (const std::shared_ptr<robot_msgs::srv::SetFsmState::Request>  req,
+                      std::shared_ptr<robot_msgs::srv::SetFsmState::Response> res) {
+            const std::string& name = req->state_name;
+            if (!this->fsm.HasState(name)) {
+                res->success = false;
+                res->message = "Unknown FSM state: '" + name + "'";
+                return;
+            }
+            const auto& cur = this->fsm.current_state_;
+            if (cur && cur->GetStateName() == name) {
+                res->success = true;
+                res->message = "Already in '" + name + "'";
+                return;
+            }
+            if (cur) {
+                auto decision = cur->CanTransitionTo(name);
+                if (!decision.allowed) {
+                    res->success = false;
+                    res->message = decision.reason;
+                    return;
+                }
+            }
+            this->fsm.RequestStateChange(name);
+            res->success = true;
+            res->message = "Transition to '" + name + "' queued";
+        });
+
+    // Wire FSM transitions to the latched current-state topic. Publish the
+    // initial state once, since the FSM's initial Enter() ran inside CreateFSM
+    // before this callback was registered.
+    this->fsm.SetTransitionCallback(
+        [this] (const std::string& current_state) {
+            robot_msgs::msg::FsmState msg;
+            msg.stamp = ros2_node->now();
+            msg.current_state = current_state;
+            this->fsm_state_publisher->publish(msg);
+        });
+    if (this->fsm.current_state_) {
+        robot_msgs::msg::FsmState initial_msg;
+        initial_msg.stamp = ros2_node->now();
+        initial_msg.current_state = this->fsm.current_state_->GetStateName();
+        this->fsm_state_publisher->publish(initial_msg);
+    }
 #endif
 
     // loop
@@ -184,6 +239,14 @@ RL_Sim::~RL_Sim()
     this->loop_plot->shutdown();
 #endif
     std::cout << LOGGER::INFO << "RL_Sim exit" << std::endl;
+}
+
+void RL_Sim::OnConfigSwitched()
+{
+    const float rl_period = this->params.Get<float>("dt") * this->params.Get<int>("decimation");
+    if (this->loop_rl) this->loop_rl->SetPeriod(rl_period);
+    // Intentionally not retuning loop_control — see NOTES.md for why dt should
+    // be a robot-level property, not a policy-level one.
 }
 
 void RL_Sim::StartJointController(const std::string& ros_namespace, const std::vector<std::string>& names)
@@ -459,6 +522,13 @@ void RL_Sim::RunModel()
 {
     if (this->rl_init_done && simulation_running)
     {
+        // Serialise the inference→push critical section against SwitchToConfig /
+        // SwitchToBase. If the lock is held (mid-switch) skip this cycle; the
+        // queue stays empty for one tick and RLControl just keeps the last
+        // command, which is harmless.
+        std::unique_lock<std::mutex> lock(this->output_mutex, std::try_to_lock);
+        if (!lock.owns_lock()) return;
+
         this->episode_length_buf += 1;
         this->obs.ang_vel = this->robot_state.imu.gyroscope;
         this->obs.commands = {this->control.x, this->control.y, this->control.yaw};

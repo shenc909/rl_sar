@@ -18,6 +18,39 @@ RL_Real::RL_Real(int argc, char **argv)
         "/cmd_vel", rclcpp::SystemDefaultsQoS(),
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
+    {
+        const auto latched_qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
+        this->fsm_state_publisher = ros2_node->create_publisher<robot_msgs::msg::FsmState>(
+            "/go2_1/fsm_state", latched_qos);
+    }
+    this->fsm_set_state_service = ros2_node->create_service<robot_msgs::srv::SetFsmState>(
+        "/go2_1/set_fsm_state",
+        [this] (const std::shared_ptr<robot_msgs::srv::SetFsmState::Request>  req,
+                      std::shared_ptr<robot_msgs::srv::SetFsmState::Response> res) {
+            const std::string& name = req->state_name;
+            if (!this->fsm.HasState(name)) {
+                res->success = false;
+                res->message = "Unknown FSM state: '" + name + "'";
+                return;
+            }
+            const auto& cur = this->fsm.current_state_;
+            if (cur && cur->GetStateName() == name) {
+                res->success = true;
+                res->message = "Already in '" + name + "'";
+                return;
+            }
+            if (cur) {
+                auto decision = cur->CanTransitionTo(name);
+                if (!decision.allowed) {
+                    res->success = false;
+                    res->message = decision.reason;
+                    return;
+                }
+            }
+            this->fsm.RequestStateChange(name);
+            res->success = true;
+            res->message = "Transition to '" + name + "' queued";
+        });
 #endif
 
     // read params from yaml
@@ -38,6 +71,25 @@ RL_Real::RL_Real(int argc, char **argv)
     {
         std::cout << LOGGER::ERROR << "[FSM] No FSM registered for robot: " << this->robot_name << std::endl;
     }
+
+#if defined(USE_ROS2) && defined(USE_ROS)
+    // Wire FSM transitions to the latched current-state topic. Also publish the
+    // initial state once, since the FSM's initial Enter() ran inside CreateFSM
+    // before this callback was registered.
+    this->fsm.SetTransitionCallback(
+        [this] (const std::string& current_state) {
+            robot_msgs::msg::FsmState msg;
+            msg.stamp = ros2_node->now();
+            msg.current_state = current_state;
+            this->fsm_state_publisher->publish(msg);
+        });
+    if (this->fsm.current_state_) {
+        robot_msgs::msg::FsmState initial_msg;
+        initial_msg.stamp = ros2_node->now();
+        initial_msg.current_state = this->fsm.current_state_->GetStateName();
+        this->fsm_state_publisher->publish(initial_msg);
+    }
+#endif
 
     // init robot
     this->InitLowCmd();
@@ -103,6 +155,14 @@ RL_Real::~RL_Real()
     this->loop_plot->shutdown();
 #endif
     std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
+}
+
+void RL_Real::OnConfigSwitched()
+{
+    const float rl_period = this->params.Get<float>("dt") * this->params.Get<int>("decimation");
+    if (this->loop_rl) this->loop_rl->SetPeriod(rl_period);
+    // Intentionally not retuning loop_control — see NOTES.md for why dt should
+    // be a robot-level property, not a policy-level one.
 }
 
 void RL_Real::GetState(RobotState<float> *state)
@@ -213,6 +273,11 @@ void RL_Real::RunModel()
 {
     if (this->rl_init_done)
     {
+        // Serialise inference→push against SwitchToConfig/SwitchToBase. Skip
+        // this tick if a switch is in progress.
+        std::unique_lock<std::mutex> lock(this->output_mutex, std::try_to_lock);
+        if (!lock.owns_lock()) return;
+
         this->episode_length_buf += 1;
         this->obs.ang_vel = this->robot_state.imu.gyroscope;
         this->obs.commands = {this->control.x, this->control.y, this->control.yaw};

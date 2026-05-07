@@ -8,6 +8,7 @@
 
 #include "fsm.hpp"
 #include "rl_sdk.hpp"
+#include "fsm_locomotion_common.hpp"
 
 namespace go2_fsm
 {
@@ -43,6 +44,13 @@ public:
             return "RLFSMStateGetUp";
         }
         return state_name_;
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateGetUp" || target == GetStateName())
+            return {true, ""};
+        return {false, "Cannot leave Passive directly to '" + target + "'; go via GetUp first."};
     }
 };
 
@@ -102,16 +110,44 @@ public:
         }
         if (percent_getup >= 1.0f)
         {
-            if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
-            {
-                return "RLFSMStateRLLocomotion";
-            }
-            else if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
+            if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
             {
                 return "RLFSMStateGetDown";
             }
+            if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            {
+                return "RLFSMStateRLLocomotion_Dreamwaq";
+            }
+            if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            {
+                return "RLFSMStateRLLocomotion_RobotLab";
+            }
+            if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
+            {
+                return "RLFSMStateRLLocomotion_HimLoco";
+            }
         }
         return state_name_;
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStatePassive" || target == GetStateName())
+            return {true, ""};
+
+        const bool is_locomotion = target == "RLFSMStateRLLocomotion_Dreamwaq"
+                                || target == "RLFSMStateRLLocomotion_RobotLab"
+                                || target == "RLFSMStateRLLocomotion_HimLoco";
+        if (target == "RLFSMStateGetDown" || is_locomotion)
+        {
+            if (percent_getup < 1.0f)
+            {
+                return {false, "GetUp not complete (percent_getup=" + std::to_string(percent_getup) +
+                               "); transitions to '" + target + "' not yet allowed."};
+            }
+            return {true, ""};
+        }
+        return {false, "Transition from 'RLFSMStateGetUp' to '" + target + "' is not in this state's legal targets."};
     }
 };
 
@@ -147,71 +183,96 @@ public:
         }
         return state_name_;
     }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStatePassive" || target == "RLFSMStateGetUp" || target == GetStateName())
+            return {true, ""};
+        return {false, "Transition from 'RLFSMStateGetDown' to '" + target + "' is not in this state's legal targets."};
+    }
 };
 
-class RLFSMStateRLLocomotion : public RLFSMState
+class RLFSMStateRLLocomotion_Dreamwaq : public RLFSMStateRLLocomotion
 {
 public:
-    RLFSMStateRLLocomotion(RL *rl) : RLFSMState(*rl, "RLFSMStateRLLocomotion") {}
-
-    float percent_transition = 0.0f;
-
-    void Enter() override
-    {
-        percent_transition = 0.0f;
-        rl.episode_length_buf = 0;
-
-        // read params from yaml
-        rl.config_name = "dreamwaq_hm_constant";
-        std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
-        try
-        {
-            rl.SwitchToConfig(robot_config_path);
-        }
-        catch (const std::exception& e)
-        {
-            std::cout << LOGGER::ERROR << "InitRL() failed: " << e.what() << std::endl;
-            rl.rl_init_done = false;
-            rl.fsm.RequestStateChange("RLFSMStatePassive");
-        }
-    }
-
-    void Run() override
-    {
-        // position transition from last default_dof_pos to current default_dof_pos
-        // if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 0.5f, "Policy transition", true)) return;
-
-        if (!rl.rl_init_done) rl.rl_init_done = true;
-
-        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller [" << rl.config_name << "] x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
-        RLControl();
-    }
-
-    void Exit() override
-    {
-        rl.SwitchToBase();
-        rl.rl_init_done = false;
-    }
+    RLFSMStateRLLocomotion_Dreamwaq(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_Dreamwaq",
+            "dreamwaq_hm_constant") {}
 
     std::string CheckChange() override
     {
-        if (rl.control.current_keyboard == Input::Keyboard::P || rl.control.current_gamepad == Input::Gamepad::LB_X)
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_RobotLab";
+        if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
+            return "RLFSMStateRLLocomotion_HimLoco";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_RobotLab" ||
+            target == "RLFSMStateRLLocomotion_HimLoco")
         {
-            return "RLFSMStatePassive";
+            return {true, ""};
         }
-        else if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_RobotLab : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_RobotLab(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_RobotLab",
+            "robot_lab") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
+            return "RLFSMStateRLLocomotion_HimLoco";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_HimLoco")
         {
-            return "RLFSMStateGetDown";
+            return {true, ""};
         }
-        else if (rl.control.current_keyboard == Input::Keyboard::Num0 || rl.control.current_gamepad == Input::Gamepad::A)
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_HimLoco : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_HimLoco(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_HimLoco",
+            "himloco") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_RobotLab";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_RobotLab")
         {
-            return "RLFSMStateGetUp";
+            return {true, ""};
         }
-        else if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
-        {
-            return "RLFSMStateRLLocomotion";
-        }
-        return state_name_;
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
     }
 };
 
@@ -230,8 +291,12 @@ public:
             return std::make_shared<go2_fsm::RLFSMStateGetUp>(rl);
         else if (state_name == "RLFSMStateGetDown")
             return std::make_shared<go2_fsm::RLFSMStateGetDown>(rl);
-        else if (state_name == "RLFSMStateRLLocomotion")
-            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_Dreamwaq")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_Dreamwaq>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_RobotLab")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_RobotLab>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_HimLoco")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_HimLoco>(rl);
         return nullptr;
     }
     std::string GetType() const override { return "go2"; }
@@ -241,7 +306,9 @@ public:
             "RLFSMStatePassive",
             "RLFSMStateGetUp",
             "RLFSMStateGetDown",
-            "RLFSMStateRLLocomotion"
+            "RLFSMStateRLLocomotion_Dreamwaq",
+            "RLFSMStateRLLocomotion_RobotLab",
+            "RLFSMStateRLLocomotion_HimLoco"
         };
     }
     std::string GetInitialState() const override { return initial_state_; }

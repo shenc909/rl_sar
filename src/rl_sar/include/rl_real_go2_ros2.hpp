@@ -29,6 +29,9 @@
 #include "unitree_go/msg/wireless_controller.hpp"
 #include "go2/motion_switch_client.hpp"
 
+#include "robot_msgs/msg/fsm_state.hpp"
+#include "robot_msgs/srv/set_fsm_state.hpp"
+
 #include "matplotlibcpp.h"
 namespace plt = matplotlibcpp;
 
@@ -79,6 +82,7 @@ private:
     std::vector<float> Forward() override;
     void GetState(RobotState<float> *state) override;
     void SetCommand(const RobotCommand<float> *command) override;
+    void OnConfigSwitched() override;
     void RunModel();
     void RobotControl();
 
@@ -130,6 +134,9 @@ private:
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+
+    rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
+    rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
 };
 
 #endif // RL_REAL_GO2_ROS2_HPP

@@ -517,6 +517,7 @@ if(SYSTEM_TYPE STREQUAL "Linux")
             ament_target_dependencies(rl_real_go2
                 rclcpp
                 geometry_msgs
+                robot_msgs
             )
             install(TARGETS rl_real_go2 DESTINATION lib/${PROJECT_NAME})
         endif()
@@ -535,9 +536,11 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         rclcpp
         geometry_msgs
         sensor_msgs
+        std_msgs
         unitree_go
         unitree_hg
         unitree_api
+        robot_msgs
     )
     install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
 endif()

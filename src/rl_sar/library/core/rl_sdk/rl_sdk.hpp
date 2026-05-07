@@ -214,6 +214,11 @@ public:
     void SwitchToBase();
     void AutoGenerateJointMapping();
 
+    // Hook fired at the tail of SwitchToConfig so executables can react to a
+    // policy swap (e.g. retune control loops if dt/decimation changed).
+    // Default no-op; override per-executable as needed.
+    virtual void OnConfigSwitched() {}
+
     // rl functions
     virtual std::vector<float> Forward() = 0;
     std::vector<float> ComputeObservation();
@@ -264,6 +269,13 @@ public:
 
     // thread safety
     std::mutex model_mutex;
+    // Serializes the inference→push critical section in RunModel against
+    // SwitchToConfig. SwitchToConfig holds this for its full duration so that
+    // RunModel can't race a stale-ordering ComputeOutput/queue.push between
+    // InitRL and the joint-mapping remap. RunModel takes it via try-to-lock and
+    // skips its cycle if it can't get it immediately — losing one cycle is
+    // harmless (RLControl just keeps the last command).
+    std::mutex output_mutex;
 };
 
 class RLFSMState : public FSMState

@@ -33,6 +33,8 @@
 #elif defined(USE_ROS2) && defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include "robot_msgs/msg/fsm_state.hpp"
+#include "robot_msgs/srv/set_fsm_state.hpp"
 #endif
 
 #include "matplotlibcpp.h"
@@ -87,6 +89,7 @@ private:
     std::vector<float> Forward() override;
     void GetState(RobotState<float> *state) override;
     void SetCommand(const RobotCommand<float> *command) override;
+    void OnConfigSwitched() override;
     void RunModel();
     void RobotControl();
 
@@ -130,6 +133,8 @@ private:
     geometry_msgs::msg::Twist cmd_vel;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
+    rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
 #endif
 };
 

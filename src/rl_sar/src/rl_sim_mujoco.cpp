@@ -331,6 +331,9 @@ void RL_Sim::RunModel()
 {
     if (this->rl_init_done && simulation_running)
     {
+        std::unique_lock<std::mutex> lock(this->output_mutex, std::try_to_lock);
+        if (!lock.owns_lock()) return;
+
         this->episode_length_buf += 1;
         this->obs.ang_vel = this->robot_state.imu.gyroscope;
         this->obs.commands = {this->control.x, this->control.y, this->control.yaw};
