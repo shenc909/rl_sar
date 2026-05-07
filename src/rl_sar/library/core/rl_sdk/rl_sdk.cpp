@@ -284,6 +284,63 @@ int RL::InverseJointMapping(int idx) const
     return -1;
 }
 
+// Take values authored against `old_jm` and rewrite them in-place under `new_jm`,
+// preserving the physical/SDK-indexed values across the swap.
+static void RemapJointVector(std::vector<float>& v,
+                             const std::vector<int>& old_jm,
+                             const std::vector<int>& new_jm)
+{
+    const int n = static_cast<int>(old_jm.size());
+    if (static_cast<int>(v.size()) != n) return;
+    std::vector<float> phys(n, 0.0f);
+    for (int i = 0; i < n; ++i) phys[old_jm[i]] = v[i];
+    for (int i = 0; i < n; ++i) v[i] = phys[new_jm[i]];
+}
+
+void RL::SwitchToConfig(const std::string& robot_config_path)
+{
+    auto old_jm = this->params.Get<std::vector<int>>("joint_mapping");
+    this->InitRL(robot_config_path);
+    auto new_jm = this->params.Get<std::vector<int>>("joint_mapping");
+
+    if (old_jm != new_jm)
+    {
+        auto& mc = this->robot_command.motor_command;
+        auto& ms = this->robot_state.motor_state;
+        RemapJointVector(mc.q,   old_jm, new_jm);
+        RemapJointVector(mc.dq,  old_jm, new_jm);
+        RemapJointVector(mc.kp,  old_jm, new_jm);
+        RemapJointVector(mc.kd,  old_jm, new_jm);
+        RemapJointVector(mc.tau, old_jm, new_jm);
+        RemapJointVector(ms.q,   old_jm, new_jm);
+        RemapJointVector(ms.dq,  old_jm, new_jm);
+        RemapJointVector(ms.tau_est, old_jm, new_jm);
+    }
+    this->now_state = this->robot_state;
+}
+
+void RL::SwitchToBase()
+{
+    auto old_jm = this->params.Get<std::vector<int>>("joint_mapping");
+    this->ReadYaml(this->robot_name, "base.yaml");
+    auto new_jm = this->params.Get<std::vector<int>>("joint_mapping");
+
+    if (old_jm != new_jm)
+    {
+        auto& mc = this->robot_command.motor_command;
+        auto& ms = this->robot_state.motor_state;
+        RemapJointVector(mc.q,   old_jm, new_jm);
+        RemapJointVector(mc.dq,  old_jm, new_jm);
+        RemapJointVector(mc.kp,  old_jm, new_jm);
+        RemapJointVector(mc.kd,  old_jm, new_jm);
+        RemapJointVector(mc.tau, old_jm, new_jm);
+        RemapJointVector(ms.q,   old_jm, new_jm);
+        RemapJointVector(ms.dq,  old_jm, new_jm);
+        RemapJointVector(ms.tau_est, old_jm, new_jm);
+    }
+    this->now_state = this->robot_state;
+}
+
 void RL::TorqueProtect(const std::vector<float>& origin_output_dof_tau)
 {
     std::vector<int> out_of_range_indices;

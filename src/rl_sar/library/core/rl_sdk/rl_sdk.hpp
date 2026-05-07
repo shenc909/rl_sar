@@ -210,6 +210,8 @@ public:
     void InitControl();
     void InitRL(std::string robot_config_path);
     void InitJointNum(size_t num_joints);
+    void SwitchToConfig(const std::string& robot_config_path);
+    void SwitchToBase();
 
     // rl functions
     virtual std::vector<float> Forward() = 0;

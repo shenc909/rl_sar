@@ -139,8 +139,7 @@ RLFSMStateRLRoboMimicLocomotion(RL *rl) : RLFSMState(*rl, "RLFSMStateRLRoboMimic
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
-            rl.InitRL(robot_config_path);
-            rl.now_state = *fsm_state;
+            rl.SwitchToConfig(robot_config_path);
         }
         catch (const std::exception& e)
         {
@@ -163,6 +162,7 @@ RLFSMStateRLRoboMimicLocomotion(RL *rl) : RLFSMState(*rl, "RLFSMStateRLRoboMimic
 
     void Exit() override
     {
+        rl.SwitchToBase();
         rl.rl_init_done = false;
     }
 
@@ -217,8 +217,7 @@ public:
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
-            rl.InitRL(robot_config_path);
-            rl.now_state = *fsm_state;
+            rl.SwitchToConfig(robot_config_path);
         }
         catch (const std::exception& e)
         {
@@ -252,6 +251,7 @@ public:
 
     void Exit() override
     {
+        rl.SwitchToBase();
         rl.rl_init_done = false;
     }
 
@@ -291,7 +291,7 @@ public:
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
-            rl.InitRL(robot_config_path);
+            rl.SwitchToConfig(robot_config_path);
 
             // Initialize motion loader
             std::string motion_file_path = std::string(POLICY_DIR) + "/" + robot_config_path + "/" + rl.params.Get<std::string>("motion_file");
@@ -308,8 +308,6 @@ public:
             rl.motion_loader->Reset(fsm_state->imu.quaternion, waist_angles);
 
             std::cout << LOGGER::INFO << "Motion duration: " << rl.motion_length << "s" << std::endl;
-
-            rl.now_state = *fsm_state;
         }
         catch (const std::exception& e)
         {
@@ -344,6 +342,7 @@ public:
 
     void Exit() override
     {
+        rl.SwitchToBase();
         rl.rl_init_done = false;
     }
 
@@ -383,7 +382,7 @@ RLFSMStateRLWholeBodyTrackingGangnamStyle(RL *rl) : RLFSMState(*rl, "RLFSMStateR
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
-            rl.InitRL(robot_config_path);
+            rl.SwitchToConfig(robot_config_path);
 
             // Initialize motion loader
             std::string motion_file_path = std::string(POLICY_DIR) + "/" + robot_config_path + "/" + rl.params.Get<std::string>("motion_file");
@@ -400,8 +399,6 @@ RLFSMStateRLWholeBodyTrackingGangnamStyle(RL *rl) : RLFSMState(*rl, "RLFSMStateR
             rl.motion_loader->Reset(fsm_state->imu.quaternion, waist_angles);
 
             std::cout << LOGGER::INFO << "Motion duration: " << rl.motion_length << "s" << std::endl;
-
-            rl.now_state = *fsm_state;
         }
         catch (const std::exception& e)
         {
@@ -436,6 +433,7 @@ RLFSMStateRLWholeBodyTrackingGangnamStyle(RL *rl) : RLFSMState(*rl, "RLFSMStateR
 
     void Exit() override
     {
+        rl.SwitchToBase();
         rl.rl_init_done = false;
     }
 

@@ -163,8 +163,7 @@ public:
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
-            rl.InitRL(robot_config_path);
-            rl.now_state = *fsm_state;
+            rl.SwitchToConfig(robot_config_path);
         }
         catch (const std::exception& e)
         {
@@ -184,6 +183,7 @@ public:
 
     void Exit() override
     {
+        rl.SwitchToBase();
         rl.rl_init_done = false;
     }
 
