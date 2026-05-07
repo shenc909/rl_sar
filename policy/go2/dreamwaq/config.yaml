@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
 
-go2/dreamwaq_hm_constant:
+go2/dreamwaq:
   model_name: "dreamwaq_hm_constant.pt"
   num_observations: 45
   num_height_scan_points: 187

@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
 
-go2/dreamwaq:
+go2/dreamwaq_speedy:
   model_name: "dreamwaq_speedy.pt"
   num_observations: 45
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions"] #, "height_scan"]
@@ -39,10 +39,9 @@ go2/dreamwaq:
   dof_vel_scale: 1.0
   commands_scale: [1.0, 1.0, 1.0]
   joystick_scale: [1.5, 2.0, 2.0, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
-  torque_limits: [23.5, 23.5, 23.5,
-                  23.5, 23.5, 23.5,
-                  23.5, 23.5, 23.5,
-                  23.5, 23.5, 23.5]
+  torque_limits: [23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5]
   default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
                     0.8000,  0.8000,  1.0000,  1.0000,
                     -1.5000, -1.5000, -1.5000, -1.5000]
