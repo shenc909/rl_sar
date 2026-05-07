@@ -212,6 +212,7 @@ public:
     void InitJointNum(size_t num_joints);
     void SwitchToConfig(const std::string& robot_config_path);
     void SwitchToBase();
+    void AutoGenerateJointMapping();
 
     // rl functions
     virtual std::vector<float> Forward() = 0;
@@ -240,6 +241,7 @@ public:
     // others
     int motiontime = 0;
     std::string robot_name, config_name;
+    std::vector<std::string> physical_joint_names;  // from base.yaml; never overwritten by config.yaml
     bool simulation_running = true;
     std::string ang_vel_axis = "body";  // "world" or "body"
     unsigned long long episode_length_buf = 0;

@@ -232,6 +232,7 @@ void RL::InitRL(std::string robot_config_path)
     std::lock_guard<std::mutex> lock(this->model_mutex);
 
     this->ReadYaml(robot_config_path, "config.yaml");
+    this->AutoGenerateJointMapping();
 
     // init joint num first
     this->InitJointNum(this->params.Get<int>("num_of_dofs"));
@@ -547,6 +548,51 @@ void RL::ReadYaml(const std::string& file_path, const std::string& file_name)
         std::string key = it->first.as<std::string>();
         this->params.config_node[key] = it->second;
     }
+
+    if (file_name == "base.yaml")
+    {
+        this->physical_joint_names = this->params.Get<std::vector<std::string>>("joint_names");
+    }
+}
+
+void RL::AutoGenerateJointMapping()
+{
+    if (this->physical_joint_names.empty()) return;
+
+    auto cfg_names = this->params.Get<std::vector<std::string>>("explicit_joint_names");
+    if (cfg_names.empty()) return;  // config did not define an explicit policy ordering
+
+    int num_of_dofs = this->params.Get<int>("num_of_dofs");
+    if (static_cast<int>(cfg_names.size()) != num_of_dofs)
+    {
+        throw std::runtime_error(
+            "[joint_mapping] config.yaml explicit_joint_names size (" + std::to_string(cfg_names.size()) +
+            ") does not match num_of_dofs (" + std::to_string(num_of_dofs) + ")");
+    }
+
+    std::vector<int> mapping;
+    mapping.reserve(cfg_names.size());
+    for (const auto& name : cfg_names)
+    {
+        auto it = std::find(this->physical_joint_names.begin(), this->physical_joint_names.end(), name);
+        if (it == this->physical_joint_names.end())
+        {
+            throw std::runtime_error(
+                "[joint_mapping] joint '" + name + "' from config.yaml explicit_joint_names is not present in base.yaml's joint_names");
+        }
+        mapping.push_back(static_cast<int>(std::distance(this->physical_joint_names.begin(), it)));
+    }
+
+    YAML::Node node;
+    for (int v : mapping) node.push_back(v);
+    this->params.config_node["joint_mapping"] = node;
+
+    std::cout << LOGGER::INFO << "[joint_mapping] auto-derived from config.yaml explicit_joint_names: [";
+    for (size_t i = 0; i < mapping.size(); ++i)
+    {
+        std::cout << mapping[i] << (i + 1 == mapping.size() ? "" : ", ");
+    }
+    std::cout << "]" << std::endl;
 }
 
 void RL::CSVInit(std::string robot_path)
