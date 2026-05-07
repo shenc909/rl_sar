@@ -45,6 +45,7 @@ go2/dreamwaq_hm_constant:
   dof_pos_scale: 1.0
   dof_vel_scale: 1.0
   commands_scale: [1.0, 1.0, 1.0]
+  joystick_scale: [1.0, 1.0, 1.0, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
   torque_limits: [23.5, 23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5, 23.5]

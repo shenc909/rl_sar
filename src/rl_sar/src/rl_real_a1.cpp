@@ -121,9 +121,10 @@ void RL_Real::GetState(RobotState<float> *state)
     if (this->unitree_joy.btn.components.R1 && this->unitree_joy.btn.components.right) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if (this->unitree_joy.btn.components.L1 && this->unitree_joy.btn.components.R1) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-    this->control.x = this->unitree_joy.ly;
-    this->control.y = -this->unitree_joy.lx;
-    this->control.yaw = -this->unitree_joy.rx;
+    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    this->control.x = this->unitree_joy.ly * joystick_scale[1];    // LY
+    this->control.y = -this->unitree_joy.lx * joystick_scale[0];   // LX
+    this->control.yaw = -this->unitree_joy.rx * joystick_scale[2]; // RX
 
     state->imu.quaternion[0] = this->unitree_low_state.imu.quaternion[0]; // w
     state->imu.quaternion[1] = this->unitree_low_state.imu.quaternion[1]; // x

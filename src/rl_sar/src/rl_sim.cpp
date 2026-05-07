@@ -499,9 +499,10 @@ void RL_Sim::JoyCallback(
     if (this->joy_msg.buttons[5] && this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
     if (this->joy_msg.buttons[4] && this->joy_msg.buttons[5]) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-    this->control.x = this->joy_msg.axes[1]; // LY
-    this->control.y = this->joy_msg.axes[0]; // LX
-    this->control.yaw = this->joy_msg.axes[3]; // RX
+    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    this->control.x = this->joy_msg.axes[1] * joystick_scale[1]; // LY
+    this->control.y = this->joy_msg.axes[0] * joystick_scale[0]; // LX
+    this->control.yaw = this->joy_msg.axes[3] * joystick_scale[2]; // RX
 }
 
 #if defined(USE_ROS1)

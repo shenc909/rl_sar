@@ -136,9 +136,10 @@ void RL_Real::GetState(RobotState<float> *state)
         if (this->l4w4_joy.btn.components.R1 && this->l4w4_joy.btn.components.right) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
         if (this->l4w4_joy.btn.components.L1 && this->l4w4_joy.btn.components.R1) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-        this->control.x = this->l4w4_joy.ly * 1.5f;
-        this->control.y = -this->l4w4_joy.lx * 1.5f;
-        this->control.yaw = -this->l4w4_joy.rx * 2.0f;
+        auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+        this->control.x = this->l4w4_joy.ly * 1.5f * joystick_scale[1];    // LY (1.5 is hw-specific input gain)
+        this->control.y = -this->l4w4_joy.lx * 1.5f * joystick_scale[0];   // LX
+        this->control.yaw = -this->l4w4_joy.rx * 2.0f * joystick_scale[2]; // RX
 
         state->imu.quaternion[0] = this->l4w4_low_state.imu.quaternion[0]; // w
         state->imu.quaternion[1] = this->l4w4_low_state.imu.quaternion[1]; // x

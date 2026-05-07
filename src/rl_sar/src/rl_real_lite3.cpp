@@ -134,9 +134,10 @@ void RL_Real::GetState(RobotState<float> *state)
     if ((this->rt_keys_.R1 != this->rt_keys_record_.R1)&&(this->rt_keys_.right != this->rt_keys_record_.right)) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if ((this->rt_keys_.R1 != this->rt_keys_record_.R1)&&(this->rt_keys_.R1 != this->rt_keys_record_.R1)) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-    this->control.x = this->rt_keys_.left_axis_y;
-    this->control.y = -this->rt_keys_.left_axis_x;
-    this->control.yaw = -this->rt_keys_.right_axis_x;
+    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    this->control.x = this->rt_keys_.left_axis_y * joystick_scale[1];    // LY
+    this->control.y = -this->rt_keys_.left_axis_x * joystick_scale[0];   // LX
+    this->control.yaw = -this->rt_keys_.right_axis_x * joystick_scale[2]; // RX
 
     float q[4];
     EulerToQuaternion(this->robot_data_->imu.angle_roll, this->robot_data_->imu.angle_pitch, this->robot_data_->imu.angle_yaw, q);

@@ -313,9 +313,10 @@ void RL_Sim::GetSysJoystick()
 
     if (has_input)
     {
-        this->control.x = ly;
-        this->control.y = lx;
-        this->control.yaw = rx;
+        auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+        this->control.x = ly * joystick_scale[1];   // LY
+        this->control.y = lx * joystick_scale[0];   // LX
+        this->control.yaw = rx * joystick_scale[2]; // RX
         this->sys_js_active = true;
     }
     else if (this->sys_js_active)
