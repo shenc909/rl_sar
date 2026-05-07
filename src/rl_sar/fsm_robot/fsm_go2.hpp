@@ -120,7 +120,7 @@ public:
             }
             if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
             {
-                return "RLFSMStateRLLocomotion_RobotLab";
+                return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
             }
             if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
             {
@@ -136,7 +136,7 @@ public:
             return {true, ""};
 
         const bool is_locomotion = target == "RLFSMStateRLLocomotion_Dreamwaq"
-                                || target == "RLFSMStateRLLocomotion_RobotLab"
+                                || target == "RLFSMStateRLLocomotion_DreamwaqSpeedy"
                                 || target == "RLFSMStateRLLocomotion_HimLoco";
         if (target == "RLFSMStateGetDown" || is_locomotion)
         {
@@ -198,12 +198,12 @@ public:
     RLFSMStateRLLocomotion_Dreamwaq(RL *rl)
         : RLFSMStateRLLocomotion(rl,
             "RLFSMStateRLLocomotion_Dreamwaq",
-            "dreamwaq_hm_constant") {}
+            "dreamwaq") {}
 
     std::string CheckChange() override
     {
         if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
-            return "RLFSMStateRLLocomotion_RobotLab";
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
         if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
             return "RLFSMStateRLLocomotion_HimLoco";
         return RLFSMStateRLLocomotion::CheckChange();
@@ -211,7 +211,7 @@ public:
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
-        if (target == "RLFSMStateRLLocomotion_RobotLab" ||
+        if (target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_HimLoco")
         {
             return {true, ""};
@@ -220,13 +220,13 @@ public:
     }
 };
 
-class RLFSMStateRLLocomotion_RobotLab : public RLFSMStateRLLocomotion
+class RLFSMStateRLLocomotion_DreamwaqSpeedy : public RLFSMStateRLLocomotion
 {
 public:
-    RLFSMStateRLLocomotion_RobotLab(RL *rl)
+    RLFSMStateRLLocomotion_DreamwaqSpeedy(RL *rl)
         : RLFSMStateRLLocomotion(rl,
-            "RLFSMStateRLLocomotion_RobotLab",
-            "robot_lab") {}
+            "RLFSMStateRLLocomotion_DreamwaqSpeedy",
+            "dreamwaq_speedy") {}
 
     std::string CheckChange() override
     {
@@ -261,14 +261,14 @@ public:
         if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
             return "RLFSMStateRLLocomotion_Dreamwaq";
         if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
-            return "RLFSMStateRLLocomotion_RobotLab";
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
-            target == "RLFSMStateRLLocomotion_RobotLab")
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
         {
             return {true, ""};
         }
@@ -293,8 +293,8 @@ public:
             return std::make_shared<go2_fsm::RLFSMStateGetDown>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_Dreamwaq")
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_Dreamwaq>(rl);
-        else if (state_name == "RLFSMStateRLLocomotion_RobotLab")
-            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_RobotLab>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedy>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_HimLoco")
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_HimLoco>(rl);
         return nullptr;
@@ -307,7 +307,7 @@ public:
             "RLFSMStateGetUp",
             "RLFSMStateGetDown",
             "RLFSMStateRLLocomotion_Dreamwaq",
-            "RLFSMStateRLLocomotion_RobotLab",
+            "RLFSMStateRLLocomotion_DreamwaqSpeedy",
             "RLFSMStateRLLocomotion_HimLoco"
         };
     }
