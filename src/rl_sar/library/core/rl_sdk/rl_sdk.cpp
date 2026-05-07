@@ -110,6 +110,10 @@ std::vector<float> RL::ComputeObservation()
         {
             obs_list.push_back(this->obs.actions);
         }
+        else if (observation == "height_scan")
+        {
+            obs_list.push_back(this->obs.height_scan);
+        }
         // ============= Other Observations =============
         else if (observation == "whole_body_tracking/motion_command")
         {
@@ -194,6 +198,7 @@ void RL::InitObservations()
     this->obs.dof_vel.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
     this->obs.actions.clear();
     this->obs.actions.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
+    this->obs.height_scan = std::vector<float>(this->params.Get<int>("num_height_scan_points"), 0.31f);
     this->ComputeObservation();
 }
 

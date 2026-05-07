@@ -469,6 +469,7 @@ void RL_Sim::RunModel()
         this->obs.base_quat = this->robot_state.imu.quaternion;
         this->obs.dof_pos = this->robot_state.motor_state.q;
         this->obs.dof_vel = this->robot_state.motor_state.dq;
+        this->obs.height_scan = std::vector<float>(this->params.Get<int>("num_height_scan_points"), 0.31f); // TODO: add height scan data
 
         this->obs.actions = this->Forward();
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);

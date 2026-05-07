@@ -103,8 +103,23 @@ run_mujoco_build() {
 }
 
 run_ros_build() {
+    local debug="$1"
+    local full_debug="$2"
+    shift 2
     local packages=("$@")
     local package_list=$(IFS=' '; echo "${packages[*]}")
+
+    local build_type="Release"
+    local colcon_extra_args=()
+    if [ "$full_debug" = true ]; then
+        build_type="Debug"
+        colcon_extra_args+=(--event-handlers console_direct+)
+    elif [ "$debug" = true ]; then
+        build_type="RelWithDebInfo"
+    fi
+    # --cmake-args must come last; it consumes the remainder of the argv.
+    colcon_extra_args+=(--cmake-args -DCMAKE_BUILD_TYPE="$build_type")
+    local catkin_extra_args=(--force-cmake --cmake-args -DCMAKE_BUILD_TYPE="$build_type")
 
     print_header "[Running ROS Build]"
 
@@ -126,21 +141,25 @@ run_ros_build() {
         if [[ "$ROS_DISTRO" == "noetic" ]]; then
             print_header "[Using catkin build]"
             print_info "Building all packages..."
-            catkin build
+            print_info "Build type: $build_type"
+            catkin build "${catkin_extra_args[@]}"
         else
             print_header "[Using colcon build]"
             print_info "Building all packages..."
-            colcon build --merge-install --symlink-install
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install "${colcon_extra_args[@]}"
         fi
     else
         if [[ "$ROS_DISTRO" == "noetic" ]]; then
             print_header "[Using catkin build]"
             print_info "Building specific packages: $package_list"
-            catkin build $package_list
+            print_info "Build type: $build_type"
+            catkin build $package_list "${catkin_extra_args[@]}"
         else
             print_header "[Using colcon build]"
             print_info "Building specific packages: $package_list"
-            colcon build --merge-install --symlink-install --packages-select $package_list
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install --packages-select $package_list "${colcon_extra_args[@]}"
         fi
     fi
 
@@ -347,11 +366,16 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
+    echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
+    echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
     echo ""
     echo -e "${COLOR_INFO}Examples:${COLOR_RESET}"
     echo -e "  $0                    # Build all ROS packages"
+    echo -e "  $0 -d                 # Build all ROS packages with debug symbols"
+    echo -e "  $0 --full-debug       # Build all ROS packages unoptimized with full debug symbols"
     echo -e "  $0 package1 package2  # Build specific ROS packages"
+    echo -e "  $0 --debug package1   # Build specific ROS packages with debug symbols"
     echo -e "  $0 -c                 # Clean all symlinks and build artifacts"
     echo -e "  $0 --clean package1   # Clean specific package and build artifacts"
     echo -e "  $0 -m                 # Build with CMake for hardware deployment"
@@ -363,13 +387,16 @@ main() {
     local clean_mode=false
     local cmake_mode=false
     local mujoco_mode=false
-
+    local debug_mode=false
+    local full_debug_mode=false
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -c|--clean) clean_mode=true; shift ;;
             -m|--cmake) cmake_mode=true; shift ;;
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
+            -d|--debug) debug_mode=true; shift ;;
+            --full-debug) full_debug_mode=true; shift ;;
             -h|--help) show_usage; exit 0 ;;
             --) shift; packages+=("$@"); break ;;
             -*) print_error "Unknown option: $1"; show_usage; exit 1 ;;
@@ -409,7 +436,7 @@ main() {
     setup_inference_runtime
     setup_robot_descriptions
     setup_gazebo_models
-    run_ros_build "${packages[@]}"
+    run_ros_build "$debug_mode" "$full_debug_mode" "${packages[@]}"
 }
 
 main "$@"

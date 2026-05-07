@@ -74,12 +74,16 @@ if(NOT USE_CMAKE)
         find_package(rclcpp REQUIRED)
         find_package(gazebo_ros REQUIRED)
         find_package(std_msgs REQUIRED)
+        find_package(sensor_msgs REQUIRED)
         find_package(robot_msgs REQUIRED)
         find_package(robot_joint_controller REQUIRED)
         find_package(rclpy REQUIRED)
         find_package(gazebo_msgs REQUIRED)
         find_package(std_srvs REQUIRED)
         find_package(geometry_msgs REQUIRED)
+        find_package(unitree_go REQUIRED)
+        find_package(unitree_hg REQUIRED)
+        find_package(unitree_api REQUIRED)
         ament_package()
     endif()
     add_compile_options(${GAZEBO_CXX_FLAGS})
@@ -350,6 +354,7 @@ endif()
 
 include_directories(
     include
+    include/go2
     library/core/matplotlibcpp
     library/core/observation_buffer
     library/core/rl_sdk
@@ -516,6 +521,25 @@ if(SYSTEM_TYPE STREQUAL "Linux")
             install(TARGETS rl_real_go2 DESTINATION lib/${PROJECT_NAME})
         endif()
     endif()
+endif()
+
+# executable for rl real go2 ros2
+if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble")
+    add_executable(rl_real_go2_ros2 src/rl_real_go2_ros2.cpp)
+    target_link_libraries(rl_real_go2_ros2
+        rl_sdk
+        observation_buffer
+            ${YAML_CPP_LIBRARIES}
+    )
+    ament_target_dependencies(rl_real_go2_ros2
+        rclcpp
+        geometry_msgs
+        sensor_msgs
+        unitree_go
+        unitree_hg
+        unitree_api
+    )
+    install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
 endif()
 
 # executable for rl real g1

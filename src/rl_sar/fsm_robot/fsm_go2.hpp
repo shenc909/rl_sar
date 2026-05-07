@@ -162,7 +162,7 @@ public:
         rl.episode_length_buf = 0;
 
         // read params from yaml
-        rl.config_name = "himloco";
+        rl.config_name = "dreamwaq_hm_constant";
         std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
         try
         {
@@ -184,7 +184,7 @@ public:
 
         if (!rl.rl_init_done) rl.rl_init_done = true;
 
-        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller [" << rl.config_name << "] x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::flush;
+        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller [" << rl.config_name << "] x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
         RLControl();
     }
 
