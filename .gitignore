@@ -7,6 +7,7 @@ log
 .catkin_tools
 cmake_build
 src/rl_sar/package.xml
+src/robot_joint_controller/package.xml
 
 # Rust
 rust_build
