@@ -46,7 +46,6 @@ RL_Real::RL_Real(int argc, char **argv)
     }
 
     // init robot
-    this->height_scan_obs = std::vector<float>(this->params.Get<int>("num_height_scan_points"), 0.31f);
     this->InitLowCmd();
     this->InitJointNum(this->params.Get<int>("num_of_dofs"));
     this->InitOutputs();

@@ -126,7 +126,7 @@ private:
     const double navigation_toggle_debounce_sec = 0.5;
     double last_height_scan_time = 0.0;
 
-    std::vector<float> height_scan_obs;
+    std::vector<float> height_scan_obs = std::vector<float>(187, 0.31f);
 
     geometry_msgs::msg::Twist cmd_vel;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
