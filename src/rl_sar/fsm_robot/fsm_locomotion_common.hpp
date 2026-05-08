@@ -34,6 +34,7 @@ public:
     {
         rl.episode_length_buf = 0;
         rl.config_name = config_name_;
+        pre_running_percent_ = 0.0f;
         try
         {
             rl.SwitchToConfig(rl.robot_name + "/" + rl.config_name);
@@ -45,19 +46,7 @@ public:
             rl.fsm.RequestStateChange("RLFSMStatePassive");
             return;
         }
-        // Snapshot the held command (already in the new policy's joint order
-        // after SwitchToConfig's RemapJointVector). Run() ramps from these
-        // GetUp-era gains/pose to the policy's rl_kp/rl_kd and live output
-        // across `transition_duration` seconds. Without this, a single tick
-        // jumps kp 80→25 and q by ~0.2 rad on rear thighs, which the real
-        // robot expresses as a visible joint snap. Sim hides it because
-        // gazebo_ros_control's joint PID and softer dynamics absorb the step.
-        const auto& mc = rl.robot_command.motor_command;
-        held_q_  = mc.q;
-        held_kp_ = mc.kp;
-        held_kd_ = mc.kd;
-        percent_transition_ = 0.0f;
-        transition_duration_ = rl.params.Get<float>("transition_duration", 0.5f);
+        transition_duration_ = rl.params.Get<float>("transition_duration", 2.0f);
     }
 
     void Run() override
@@ -67,12 +56,58 @@ public:
                   << "RL Controller [" << rl.config_name << "] x:" << rl.control.x
                   << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
 
-        if (percent_transition_ < 1.0f)
+        // Pre-RL takeover (port of robot-ros2's pattern): the percent only
+        // advances when a fresh policy output is consumed, q is blended from
+        // init_dof_pos (config-defined) toward the live policy output, and
+        // kp/kd snap to rl_kp/rl_kd as soon as the queue feeds us. While the
+        // queue is empty we leave fsm_command alone so the held GetUp pose
+        // continues to be commanded.
+        std::vector<float> _output_dof_pos, _output_dof_vel;
+        if (!rl.output_dof_pos_queue.try_pop(_output_dof_pos) ||
+            !rl.output_dof_vel_queue.try_pop(_output_dof_vel))
         {
-            BlendToPolicy();
             return;
         }
-        RLControl();
+
+        const auto rl_kp = rl.params.Get<std::vector<float>>("rl_kp");
+        const auto rl_kd = rl.params.Get<std::vector<float>>("rl_kd");
+        const int n = rl.params.Get<int>("num_of_dofs");
+
+        if (pre_running_percent_ < 1.0f)
+        {
+            // Ramp pace: complete in transition_duration seconds at the
+            // inference period (dt * decimation), since each successful pop
+            // corresponds to one inference cycle.
+            const float rl_period = rl.params.Get<float>("dt") * rl.params.Get<int>("decimation");
+            const int n_steps = std::max(1, static_cast<int>(std::ceil(transition_duration_ / rl_period)));
+            pre_running_percent_ = std::min(pre_running_percent_ + 1.0f / n_steps, 1.0f);
+
+            const auto init_dof_pos = rl.params.Get<std::vector<float>>("init_dof_pos",
+                rl.params.Get<std::vector<float>>("default_dof_pos"));
+            const float a = pre_running_percent_;
+            for (int i = 0; i < n; ++i)
+            {
+                if (!_output_dof_pos.empty())
+                    fsm_command->motor_command.q[i] = (1 - a) * init_dof_pos[i] + a * _output_dof_pos[i];
+                fsm_command->motor_command.dq[i]  = 0;
+                fsm_command->motor_command.kp[i]  = rl_kp[i];
+                fsm_command->motor_command.kd[i]  = rl_kd[i];
+                fsm_command->motor_command.tau[i] = 0;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                if (!_output_dof_pos.empty())
+                    fsm_command->motor_command.q[i] = _output_dof_pos[i];
+                if (!_output_dof_vel.empty())
+                    fsm_command->motor_command.dq[i] = _output_dof_vel[i];
+                fsm_command->motor_command.kp[i]  = rl_kp[i];
+                fsm_command->motor_command.kd[i]  = rl_kd[i];
+                fsm_command->motor_command.tau[i] = 0;
+            }
+        }
     }
 
     void Exit() override
@@ -114,43 +149,8 @@ protected:
     std::string config_name_;   // policy folder under policy/<robot_name>/
 
 private:
-    // Blend held GetUp gains/pose toward the RL policy's gains/output across
-    // `transition_duration_` seconds. Pops policy outputs as soon as they
-    // become available so RunModel's queue doesn't pile up; falls back to the
-    // held pose for the first few ticks before inference completes.
-    void BlendToPolicy()
-    {
-        std::vector<float> _output_dof_pos, _output_dof_vel;
-        const bool have_output = rl.output_dof_pos_queue.try_pop(_output_dof_pos)
-                              && rl.output_dof_vel_queue.try_pop(_output_dof_vel);
-
-        const float dt = rl.params.Get<float>("dt");
-        const int required_frames = std::max(1,
-            static_cast<int>(std::ceil(transition_duration_ / dt)));
-        percent_transition_ = std::min(percent_transition_ + 1.0f / required_frames, 1.0f);
-
-        const auto rl_kp = rl.params.Get<std::vector<float>>("rl_kp");
-        const auto rl_kd = rl.params.Get<std::vector<float>>("rl_kd");
-        const int n = rl.params.Get<int>("num_of_dofs");
-        const float a = percent_transition_;
-
-        for (int i = 0; i < n; ++i)
-        {
-            const float q_target  = have_output ? _output_dof_pos[i] : held_q_[i];
-            const float dq_target = have_output ? _output_dof_vel[i] : 0.0f;
-            fsm_command->motor_command.q[i]   = (1 - a) * held_q_[i]  + a * q_target;
-            fsm_command->motor_command.dq[i]  = a * dq_target;
-            fsm_command->motor_command.kp[i]  = (1 - a) * held_kp_[i] + a * rl_kp[i];
-            fsm_command->motor_command.kd[i]  = (1 - a) * held_kd_[i] + a * rl_kd[i];
-            fsm_command->motor_command.tau[i] = 0;
-        }
-    }
-
-    std::vector<float> held_q_;
-    std::vector<float> held_kp_;
-    std::vector<float> held_kd_;
-    float percent_transition_ = 0.0f;
-    float transition_duration_ = 0.5f;
+    float pre_running_percent_ = 0.0f;
+    float transition_duration_ = 2.0f;
 };
 
 #endif // FSM_LOCOMOTION_COMMON_HPP

@@ -3,6 +3,7 @@
 
 go2/dreamwaq:
   model_name: "dreamwaq_hm_constant.pt"
+  transition_duration: 2.0
   num_observations: 45
   num_height_scan_points: 187
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
