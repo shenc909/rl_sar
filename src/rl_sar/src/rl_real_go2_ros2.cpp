@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <cstring>
 #include <termios.h>
 #include <unistd.h>
 
@@ -305,6 +306,10 @@ void RL_Real::GetState(RobotState<float> *state)
 void RL_Real::SetCommand(const RobotCommand<float> *command)
 {
     unitree_go::msg::LowCmd dds_low_command{};
+    // DIAGNOSTIC: zero padding bytes so CRC is computed over a well-defined
+    // memory pattern. UB strictly, but harmless for this POD-shaped struct
+    // and tells us whether the firmware-side validation depended on padding=0.
+    std::memset(&dds_low_command, 0, sizeof(dds_low_command));
     dds_low_command.head[0] = 0xFE;
     dds_low_command.head[1] = 0xEF;
     dds_low_command.level_flag = 0xFF;
