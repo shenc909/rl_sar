@@ -52,9 +52,6 @@ public:
     void Run() override
     {
         if (!rl.rl_init_done) rl.rl_init_done = true;
-        std::cout << "\r\033[K" << std::flush << LOGGER::INFO
-                  << "RL Controller [" << rl.config_name << "] x:" << rl.control.x
-                  << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
 
         // Pre-RL takeover (port of robot-ros2's pattern): the percent only
         // advances when a fresh policy output is consumed, q is blended from
@@ -94,6 +91,7 @@ public:
                 fsm_command->motor_command.kd[i]  = rl_kd[i];
                 fsm_command->motor_command.tau[i] = 0;
             }
+            LOGGER::PrintProgress(pre_running_percent_, "Pre-RL takeover [" + rl.config_name + "]");
         }
         else
         {
@@ -107,6 +105,9 @@ public:
                 fsm_command->motor_command.kd[i]  = rl_kd[i];
                 fsm_command->motor_command.tau[i] = 0;
             }
+            std::cout << "\r\033[K" << std::flush << LOGGER::INFO
+                      << "RL Controller [" << rl.config_name << "] x:" << rl.control.x
+                      << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
         }
     }
 
