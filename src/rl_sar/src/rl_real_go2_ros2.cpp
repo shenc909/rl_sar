@@ -305,42 +305,18 @@ void RL_Real::GetState(RobotState<float> *state)
 
 void RL_Real::SetCommand(const RobotCommand<float> *command)
 {
-    unitree_go::msg::LowCmd dds_low_command{};
-    // DIAGNOSTIC: zero padding bytes so CRC is computed over a well-defined
-    // memory pattern. UB strictly, but harmless for this POD-shaped struct
-    // and tells us whether the firmware-side validation depended on padding=0.
-    std::memset(&dds_low_command, 0, sizeof(dds_low_command));
-    dds_low_command.head[0] = 0xFE;
-    dds_low_command.head[1] = 0xEF;
-    dds_low_command.level_flag = 0xFF;
-    dds_low_command.gpio = 0;
-
-    for (int i = 0; i < 20; ++i)
-    {
-        dds_low_command.motor_cmd[i].mode = 0x01;
-        dds_low_command.motor_cmd[i].q = PosStopF;
-        dds_low_command.motor_cmd[i].kp = 0;
-        dds_low_command.motor_cmd[i].dq = VelStopF;
-        dds_low_command.motor_cmd[i].kd = 0;
-        dds_low_command.motor_cmd[i].tau = 0;
-    }
-
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].mode = 0x01;
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].q = command->motor_command.q[i];
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].dq = command->motor_command.dq[i];
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].kp = command->motor_command.kp[i];
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].kd = command->motor_command.kd[i];
-        dds_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].tau = command->motor_command.tau[i];
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].mode = 0x01;
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].q = command->motor_command.q[i];
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].dq = command->motor_command.dq[i];
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].kp = command->motor_command.kp[i];
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].kd = command->motor_command.kd[i];
+        this->unitree_low_command.motor_cmd[this->params.Get<std::vector<int>>("joint_mapping")[i]].tau = command->motor_command.tau[i];
     }
 
-    dds_low_command.crc = Crc32Core((uint32_t *)&dds_low_command, (sizeof(unitree_go::msg::LowCmd) >> 2) - 1);
-    lowcmd_publisher->publish(dds_low_command);
-
-#ifdef PLOT
-    this->unitree_low_command = dds_low_command;
-#endif
+    this->unitree_low_command.crc = Crc32Core((uint32_t *)&this->unitree_low_command, (sizeof(unitree_go::msg::LowCmd) >> 2) - 1);
+    lowcmd_publisher->publish(this->unitree_low_command);
 }
 
 void RL_Real::RobotControl()
@@ -508,6 +484,13 @@ uint32_t RL_Real::Crc32Core(uint32_t *ptr, uint32_t len)
 
 void RL_Real::InitLowCmd()
 {
+    // Zero the whole struct including padding bytes. The published CRC is
+    // computed over raw struct memory (see SetCommand), so any non-zero
+    // padding here would survive into every tick's CRC and the firmware
+    // would reject the messages. The default constructor only zeros named
+    // fields, not padding — hence the explicit memset.
+    std::memset(&this->unitree_low_command, 0, sizeof(this->unitree_low_command));
+
     this->unitree_low_command.head[0] = 0xFE;
     this->unitree_low_command.head[1] = 0xEF;
     this->unitree_low_command.level_flag = 0xFF;
