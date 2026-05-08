@@ -6,7 +6,7 @@ install
 log
 .catkin_tools
 cmake_build
-package.xml
+src/rl_sar/package.xml
 
 # Rust
 rust_build
