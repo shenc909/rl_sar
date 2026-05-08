@@ -15,6 +15,19 @@ if(USE_CMAKE)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 endif()
 
+# Per-robot deploy mode: when set, only the matching rl_real_<robot> target
+# is configured. Avoids pulling incompatible vendor SDKs into the build
+# (e.g. agibot D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available
+# on Ubuntu 20.04 / Jetson). Empty = build all robots (legacy behavior).
+set(TARGET_ROBOT "" CACHE STRING "Build only the specified robot's deploy executable (a1|lite3|go2|g1|l4w4|d1). Empty = build all.")
+if(TARGET_ROBOT)
+    set(_valid_robots a1 lite3 go2 g1 l4w4 d1)
+    if(NOT TARGET_ROBOT IN_LIST _valid_robots)
+        message(FATAL_ERROR "TARGET_ROBOT='${TARGET_ROBOT}' is invalid. Valid: ${_valid_robots}")
+    endif()
+    message(STATUS "TARGET_ROBOT=${TARGET_ROBOT} (only rl_real_${TARGET_ROBOT} will be built)")
+endif()
+
 if(NOT USE_CMAKE)
     if($ENV{ROS_DISTRO} MATCHES "noetic")
         add_compile_definitions(USE_ROS1)
@@ -420,7 +433,7 @@ if(NOT USE_CMAKE)
 endif()
 
 # executable for rl sim
-if(NOT USE_CMAKE)
+if(NOT USE_CMAKE AND TARGET_ROBOT STREQUAL "")
     add_executable(rl_sim src/rl_sim.cpp)
     target_link_libraries(rl_sim
         rl_sdk
@@ -449,7 +462,7 @@ if(NOT USE_CMAKE)
 endif()
 
 # executable for rl real a1
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "a1"))
     add_executable(rl_real_a1 src/rl_real_a1.cpp)
     target_link_libraries(rl_real_a1
         ${UNITREE_A1_LIBS}
@@ -470,7 +483,7 @@ if(SYSTEM_TYPE STREQUAL "Linux")
     endif()
 endif()
 
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "lite3"))
     add_executable(rl_real_lite3
         src/rl_real_lite3.cpp
         ${GAMEPAD_SRC}
@@ -498,13 +511,22 @@ if(SYSTEM_TYPE STREQUAL "Linux")
 endif()
 
 # executable for rl real go2
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2"))
     add_executable(rl_real_go2 src/rl_real_go2.cpp)
     target_link_libraries(rl_real_go2
         unitree_sdk2
         rl_sdk
         observation_buffer
             ${YAML_CPP_LIBRARIES}
+    )
+    # Force unitree_sdk2's bundled CycloneDDS headers ahead of any -isystem
+    # include path. ROS Foxy ships an older CycloneDDS at /opt/ros/foxy/include
+    # whose <dds/dds.h> lacks dds_create_topic_sertype/getSerType — symbols
+    # the bundled ddscxx C++ headers require. Without this, ament_target_dependencies
+    # below pulls in foxy's dds.h first and the build fails.
+    target_include_directories(rl_real_go2 BEFORE PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_sdk2/thirdparty/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_sdk2/thirdparty/include/ddscxx
     )
     # Add unitree_sdk2 library path to RPATH
     set_target_properties(rl_real_go2 PROPERTIES
@@ -525,7 +547,8 @@ if(SYSTEM_TYPE STREQUAL "Linux")
 endif()
 
 # executable for rl real go2 ros2
-if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble")
+if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
+   AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2"))
     add_executable(rl_real_go2_ros2 src/rl_real_go2_ros2.cpp)
     target_link_libraries(rl_real_go2_ros2
         rl_sdk
@@ -546,13 +569,18 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
 endif()
 
 # executable for rl real g1
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "g1"))
     add_executable(rl_real_g1 src/rl_real_g1.cpp)
     target_link_libraries(rl_real_g1
         unitree_sdk2
         rl_sdk
         observation_buffer
             ${YAML_CPP_LIBRARIES}
+    )
+    # See rl_real_go2 above — same DDS header-shadowing issue on ROS Foxy.
+    target_include_directories(rl_real_g1 BEFORE PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_sdk2/thirdparty/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_sdk2/thirdparty/include/ddscxx
     )
     # Add unitree_sdk2 library path to RPATH
     set_target_properties(rl_real_g1 PROPERTIES
@@ -572,7 +600,7 @@ if(SYSTEM_TYPE STREQUAL "Linux")
 endif()
 
 # executable for rl real l4w4
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "l4w4"))
     add_executable(rl_real_l4w4 src/rl_real_l4w4.cpp)
     target_link_libraries(rl_real_l4w4
         l4w4_sdk
@@ -594,7 +622,7 @@ if(SYSTEM_TYPE STREQUAL "Linux")
 endif()
 
 # executable for rl real d1
-if(SYSTEM_TYPE STREQUAL "Linux")
+if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "d1"))
     add_executable(rl_real_d1 src/rl_real_d1.cpp)
     target_link_libraries(rl_real_d1
         ${AGIBOT_D1_LIBS}
@@ -646,7 +674,7 @@ endif()
 # ========================
 # mujoco
 # ========================
-if(USE_MUJOCO)
+if(USE_MUJOCO AND TARGET_ROBOT STREQUAL "")
     add_compile_definitions(USE_MUJOCO)
     set(MUJOCO_DIR "${PROJECT_ROOT_DIR}/library/mujoco")
 

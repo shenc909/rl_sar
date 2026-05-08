@@ -81,11 +81,18 @@ setup_gazebo_models() {
 }
 
 run_cmake_build() {
+    local robot="$1"
     print_header "[Running CMake Build]"
     print_warning "NOTE: CMake build is for hardware deployment only, not for simulation."
     print_separator
 
-    cmake src/rl_sar/ -B cmake_build -DUSE_CMAKE=ON
+    local extra_cmake_args=()
+    if [ -n "$robot" ]; then
+        extra_cmake_args+=("-DTARGET_ROBOT=$robot")
+        print_info "Target robot: $robot (only rl_real_$robot will be built)"
+    fi
+
+    cmake src/rl_sar/ -B cmake_build -DUSE_CMAKE=ON "${extra_cmake_args[@]}"
     cmake --build cmake_build -j$(nproc 2>/dev/null || echo 4)
 
     print_success "CMake build completed!"
@@ -105,7 +112,8 @@ run_mujoco_build() {
 run_ros_build() {
     local debug="$1"
     local full_debug="$2"
-    shift 2
+    local robot="$3"
+    shift 3
     local packages=("$@")
     local package_list=$(IFS=' '; echo "${packages[*]}")
 
@@ -118,8 +126,16 @@ run_ros_build() {
         build_type="RelWithDebInfo"
     fi
     # --cmake-args must come last; it consumes the remainder of the argv.
-    colcon_extra_args+=(--cmake-args -DCMAKE_BUILD_TYPE="$build_type")
-    local catkin_extra_args=(--force-cmake --cmake-args -DCMAKE_BUILD_TYPE="$build_type")
+    # --no-warn-unused-cli silences "unused variable" warnings from packages
+    # that don't read TARGET_ROBOT (only rl_sar does, but colcon passes
+    # cmake-args to every package).
+    colcon_extra_args+=(--cmake-args -DCMAKE_BUILD_TYPE="$build_type" --no-warn-unused-cli)
+    local catkin_extra_args=(--force-cmake --cmake-args -DCMAKE_BUILD_TYPE="$build_type" --no-warn-unused-cli)
+    if [ -n "$robot" ]; then
+        colcon_extra_args+=("-DTARGET_ROBOT=$robot")
+        catkin_extra_args+=("-DTARGET_ROBOT=$robot")
+        print_info "Target robot: $robot (only rl_real_$robot will be built)"
+    fi
 
     print_header "[Running ROS Build]"
 
@@ -366,6 +382,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
+    echo -e "  -r, --robot NAME Build only the specified robot (a1|lite3|go2|g1|l4w4|d1)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -380,6 +397,8 @@ show_usage() {
     echo -e "  $0 --clean package1   # Clean specific package and build artifacts"
     echo -e "  $0 -m                 # Build with CMake for hardware deployment"
     echo -e "  $0 -mj                # Build with CMake and MuJoCo simulator support"
+    echo -e "  $0 -m -r go2          # Deploy build for Go2 only (CMake)"
+    echo -e "  $0 -r g1              # Deploy build for G1 only (ROS)"
 }
 
 main() {
@@ -389,12 +408,19 @@ main() {
     local mujoco_mode=false
     local debug_mode=false
     local full_debug_mode=false
+    local robot=""
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -c|--clean) clean_mode=true; shift ;;
             -m|--cmake) cmake_mode=true; shift ;;
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
+            -r|--robot)
+                if [ -z "$2" ]; then
+                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1)"
+                    exit 1
+                fi
+                robot="$2"; shift 2 ;;
             -d|--debug) debug_mode=true; shift ;;
             --full-debug) full_debug_mode=true; shift ;;
             -h|--help) show_usage; exit 0 ;;
@@ -404,8 +430,23 @@ main() {
         esac
     done
 
+    # Validate --robot value
+    if [ -n "$robot" ]; then
+        case "$robot" in
+            a1|lite3|go2|g1|l4w4|d1) ;;
+            *)
+                print_error "Unknown robot: $robot"
+                print_info "Valid robots: a1, lite3, go2, g1, l4w4, d1"
+                exit 1 ;;
+        esac
+    fi
+
     # Handle MuJoCo build mode
     if [ "$mujoco_mode" = true ]; then
+        if [ -n "$robot" ]; then
+            print_error "--robot is incompatible with --mujoco (MuJoCo is a simulator, not a robot)"
+            exit 1
+        fi
         setup_inference_runtime
         setup_robot_descriptions
         setup_mujoco
@@ -416,7 +457,7 @@ main() {
     # Handle CMake build mode
     if [ "$cmake_mode" = true ]; then
         setup_inference_runtime
-        run_cmake_build
+        run_cmake_build "$robot"
         exit 0
     fi
 
@@ -436,7 +477,7 @@ main() {
     setup_inference_runtime
     setup_robot_descriptions
     setup_gazebo_models
-    run_ros_build "$debug_mode" "$full_debug_mode" "${packages[@]}"
+    run_ros_build "$debug_mode" "$full_debug_mode" "$robot" "${packages[@]}"
 }
 
 main "$@"
