@@ -22,6 +22,11 @@ source "${SCRIPT_DIR}/common.sh"
 OS_TYPE="$(uname -s)"
 ARCH_TYPE="$(uname -m)"
 
+# Auto-detect Jetson platform unless IS_JETSON is already set (mirrors src/rl_sar/CMakeLists.txt)
+if [ -z "${IS_JETSON}" ] && [ -f /etc/nv_tegra_release ]; then
+    IS_JETSON=true
+fi
+
 # Parse arguments: support both new and old usage
 if [ $# -eq 0 ]; then
     TARGET_DIR="library/inference_runtime"
