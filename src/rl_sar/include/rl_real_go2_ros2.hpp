@@ -122,8 +122,7 @@ private:
     std::vector<float> mapped_joint_positions;
     std::vector<float> mapped_joint_velocities;
     double last_cmd_vel_time = 0.0;
-    double last_navigation_toggle_time = 0.0;
-    const double navigation_toggle_debounce_sec = 0.5;
+    bool prev_joy_x_pressed = false;
     double last_height_scan_time = 0.0;
 
     std::vector<float> height_scan_obs = std::vector<float>(187, 0.31f);

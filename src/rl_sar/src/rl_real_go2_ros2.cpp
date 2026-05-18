@@ -248,7 +248,10 @@ void RL_Real::GetState(RobotState<float> *state)
 {
     if (this->unitree_joy.components.A) this->control.SetGamepad(Input::Gamepad::A);
     if (this->unitree_joy.components.B) this->control.SetGamepad(Input::Gamepad::B);
-    if (this->unitree_joy.components.X) this->control.SetGamepad(Input::Gamepad::X);
+    bool joy_x_pressed = this->unitree_joy.components.X
+                         && !(this->unitree_joy.components.L1 || this->unitree_joy.components.R1);
+    if (joy_x_pressed && !this->prev_joy_x_pressed) this->control.SetGamepad(Input::Gamepad::X);
+    this->prev_joy_x_pressed = joy_x_pressed;
     if (this->unitree_joy.components.Y) this->control.SetGamepad(Input::Gamepad::Y);
     if (this->unitree_joy.components.L1) this->control.SetGamepad(Input::Gamepad::LB);
     if (this->unitree_joy.components.R1) this->control.SetGamepad(Input::Gamepad::RB);
