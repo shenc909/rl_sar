@@ -124,7 +124,7 @@ public:
             }
             if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
             {
-                return "RLFSMStateRLLocomotion_HimLoco";
+                return "RLFSMStateRLLocomotion_DreamwaqBlind";
             }
         }
         return state_name_;
@@ -137,7 +137,7 @@ public:
 
         const bool is_locomotion = target == "RLFSMStateRLLocomotion_Dreamwaq"
                                 || target == "RLFSMStateRLLocomotion_DreamwaqSpeedy"
-                                || target == "RLFSMStateRLLocomotion_HimLoco";
+                                || target == "RLFSMStateRLLocomotion_DreamwaqBlind";
         if (target == "RLFSMStateGetDown" || is_locomotion)
         {
             if (percent_getup < 1.0f)
@@ -205,14 +205,14 @@ public:
         if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
             return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
         if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
-            return "RLFSMStateRLLocomotion_HimLoco";
+            return "RLFSMStateRLLocomotion_DreamwaqBlind";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
         if (target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
-            target == "RLFSMStateRLLocomotion_HimLoco")
+            target == "RLFSMStateRLLocomotion_DreamwaqBlind")
         {
             return {true, ""};
         }
@@ -233,14 +233,14 @@ public:
         if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
             return "RLFSMStateRLLocomotion_Dreamwaq";
         if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
-            return "RLFSMStateRLLocomotion_HimLoco";
+            return "RLFSMStateRLLocomotion_DreamwaqBlind";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
-            target == "RLFSMStateRLLocomotion_HimLoco")
+            target == "RLFSMStateRLLocomotion_DreamwaqBlind")
         {
             return {true, ""};
         }
@@ -255,6 +255,34 @@ public:
         : RLFSMStateRLLocomotion(rl,
             "RLFSMStateRLLocomotion_HimLoco",
             "himloco") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
+        {
+            return {true, ""};
+        }
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_DreamwaqBlind : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_DreamwaqBlind(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_DreamwaqBlind",
+            "dreamwaq_blind") {}
 
     std::string CheckChange() override
     {
@@ -297,6 +325,8 @@ public:
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedy>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_HimLoco")
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_HimLoco>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_DreamwaqBlind")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqBlind>(rl);
         return nullptr;
     }
     std::string GetType() const override { return "go2"; }
@@ -308,7 +338,8 @@ public:
             "RLFSMStateGetDown",
             "RLFSMStateRLLocomotion_Dreamwaq",
             "RLFSMStateRLLocomotion_DreamwaqSpeedy",
-            "RLFSMStateRLLocomotion_HimLoco"
+            "RLFSMStateRLLocomotion_HimLoco",
+            "RLFSMStateRLLocomotion_DreamwaqBlind"
         };
     }
     std::string GetInitialState() const override { return initial_state_; }
