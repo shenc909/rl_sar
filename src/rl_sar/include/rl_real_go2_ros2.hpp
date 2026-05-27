@@ -23,6 +23,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+
+#include <mutex>
+
+#include "bev_rasterizer.hpp"
 
 #include "unitree_go/msg/low_state.hpp"
 #include "unitree_go/msg/low_cmd.hpp"
@@ -125,6 +130,9 @@ private:
     bool prev_joy_x_pressed = false;
     double last_height_scan_time = 0.0;
 
+    // Float32MultiArray elevation-map path (used by configs whose height_scan_source
+    // is not "lidar_bev", e.g. dreamwaq's 187-point map). Sized lazily from the
+    // active config in HeightScanCallback so it stays correct across config switches.
     std::vector<float> height_scan_obs = std::vector<float>(187, 0.31f);
 
     geometry_msgs::msg::Twist cmd_vel;
@@ -133,6 +141,13 @@ private:
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+
+    // BEV lidar path (height_scan_source == "lidar_bev"): subscribe to the
+    // self-filtered cloud and rasterize it via RasterizeLidarBEV in RunModel.
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_subscriber;
+    sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud;
+    std::mutex lidar_mutex;
+    void LidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
     rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;

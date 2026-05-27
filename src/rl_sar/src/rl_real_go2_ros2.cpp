@@ -72,10 +72,18 @@ RL_Real::RL_Real(int argc, char **argv)
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
 
-    // height_scan subscriber
+    // height_scan subscriber (Float32MultiArray elevation map; used by non-lidar_bev configs)
     this->height_scan_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32MultiArray>(
         "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
         [this] (const std_msgs::msg::Float32MultiArray::SharedPtr msg) {this->HeightScanCallback(msg);}
+    );
+
+    // BEV lidar subscriber: the self-filtered L1 cloud (robot_self_filter -> /lidar/points_filtered,
+    // same topic name as the Gazebo pipeline). Points must be in the L1 sensor frame; the
+    // bev_lidar_mount_* params in the policy config map them into the base frame.
+    this->lidar_subscriber = ros2_node->create_subscription<sensor_msgs::msg::PointCloud2>(
+        "/lidar/points_filtered", rclcpp::SensorDataQoS(),
+        [this] (const sensor_msgs::msg::PointCloud2::SharedPtr msg) {this->LidarCallback(msg);}
     );
 
     // Latched current-FSM-state publisher (transient_local + keep_last(1) so
@@ -362,10 +370,30 @@ void RL_Real::RunModel()
         this->obs.dof_pos = this->robot_state.motor_state.q;
         this->obs.dof_vel = this->robot_state.motor_state.dq;
 
-        this->obs.height_scan = this->height_scan_obs;
-        double height_scan_time_diff = ros2_node->now().seconds() - this->last_height_scan_time;
-        if (height_scan_time_diff > 0.2) {
-            RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 1000, "Height map data stale, rate < 5Hz! Staleness: %f s", height_scan_time_diff);
+        if (this->params.Get<std::string>("height_scan_source") == "lidar_bev")
+        {
+            // Rasterize the self-filtered lidar cloud into the 2-channel BEV (shared with rl_sim).
+            sensor_msgs::msg::PointCloud2::SharedPtr cloud;
+            {
+                std::lock_guard<std::mutex> lock(this->lidar_mutex);
+                cloud = this->latest_cloud;
+            }
+            const std::vector<float> fallback = this->MakeHeightScanFill();
+            this->obs.height_scan = cloud
+                ? RasterizeLidarBEV(*cloud, this->params, this->obs.base_quat, fallback)
+                : fallback;
+            double lidar_time_diff = ros2_node->now().seconds() - this->last_height_scan_time;
+            if (lidar_time_diff > 0.2) {
+                RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 1000, "Lidar cloud stale, rate < 5Hz! Staleness: %f s", lidar_time_diff);
+            }
+        }
+        else
+        {
+            this->obs.height_scan = this->height_scan_obs;
+            double height_scan_time_diff = ros2_node->now().seconds() - this->last_height_scan_time;
+            if (height_scan_time_diff > 0.2) {
+                RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 1000, "Height map data stale, rate < 5Hz! Staleness: %f s", height_scan_time_diff);
+            }
         }
 
         this->obs.actions = this->Forward();
@@ -581,11 +609,25 @@ void RL_Real::HeightScanCallback(
 )
 {
     this->height_scan = *msg;
-    for (size_t i = 0; i < msg->data.size(); ++i) {
-        RCLCPP_INFO(ros2_node->get_logger(), "  Data[%zu]: %f", i, msg->data[i]);
-        // RCLCPP_INFO(this->get_logger(), "HM Received! Timestamp: %f", this->now().seconds());
-        this->height_scan_obs[i] = msg->data[i];
+    // Resize to the incoming array so a config switch (e.g. 187 -> a different
+    // map size) can't leave the buffer wrong or overrun the original 187 slots.
+    if (this->height_scan_obs.size() != msg->data.size())
+    {
+        this->height_scan_obs.assign(msg->data.size(), 0.0f);
     }
+    std::copy(msg->data.begin(), msg->data.end(), this->height_scan_obs.begin());
+    this->last_height_scan_time = ros2_node->now().seconds();
+}
+
+void RL_Real::LidarCallback(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg
+)
+{
+    {
+        std::lock_guard<std::mutex> lock(this->lidar_mutex);
+        this->latest_cloud = msg;
+    }
+    // Shared staleness clock with the elevation-map path (only one source is active per config).
     this->last_height_scan_time = ros2_node->now().seconds();
 }
 
