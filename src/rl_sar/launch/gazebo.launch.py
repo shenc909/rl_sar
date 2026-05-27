@@ -4,6 +4,7 @@
 import os
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command
 from launch_ros.actions import Node
@@ -93,11 +94,43 @@ def generate_launch_description():
         }],
     )
 
+    # robot_self_filter: strips the robot's own body from the BEV lidar cloud (/lidar/points ->
+    # /lidar/points_filtered) so rl_sim only rasterizes terrain. go2-specific; disable with bev_lidar:=false
+    # for robots without the lidar. The filter config (link names) lives in the go2_description package.
+    self_filter_config = os.path.join(
+        get_package_share_directory("go2_description"), "config", "self_filter.yaml"
+    )
+    self_filter_node = Node(
+        package="robot_self_filter",
+        executable="self_filter",
+        name="self_filter",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("bev_lidar")),
+        parameters=[
+            self_filter_config,
+            {
+                "robot_description": robot_description,
+                "lidar_sensor_type": 0,  # 0 = XYZSensor (plain Gazebo PointCloud2)
+                "zero_for_removed_points": False,
+                "use_sim_time": True,
+            },
+        ],
+        remappings=[
+            ("/cloud_in", "/lidar/points"),
+            ("/cloud_out", "/lidar/points_filtered"),
+        ],
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument(
             "rname",
             description="Robot name (e.g., a1, go2)",
             default_value=TextSubstitution(text=""),
+        ),
+        DeclareLaunchArgument(
+            "bev_lidar",
+            description="Run the BEV lidar self-filter node (go2 only)",
+            default_value="true",
         ),
         robot_state_publisher_node,
         gazebo,
@@ -106,4 +139,5 @@ def generate_launch_description():
         # robot_joint_controller_node,  # Spawn in rl_sim.cpp
         joy_node,
         param_node,
+        self_filter_node,
     ])

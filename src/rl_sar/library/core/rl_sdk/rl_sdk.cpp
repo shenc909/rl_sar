@@ -198,8 +198,36 @@ void RL::InitObservations()
     this->obs.dof_vel.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
     this->obs.actions.clear();
     this->obs.actions.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
-    this->obs.height_scan = std::vector<float>(this->params.Get<int>("num_height_scan_points"), 0.31f);
+    this->obs.height_scan = this->MakeHeightScanFill();
     this->ComputeObservation();
+}
+
+std::vector<float> RL::MakeHeightScanFill() const
+{
+    const int num_points = this->params.Get<int>("num_height_scan_points");
+    const auto fill = this->params.Get<std::vector<float>>("height_scan_fill");
+    if (fill.empty())
+    {
+        // No per-channel fill configured: keep the legacy uniform placeholder.
+        return std::vector<float>(num_points, 0.31f);
+    }
+    // Split num_points into "height_scan_num_channels" equal contiguous (channel-major) segments,
+    // filling segment i with fill[i]. Falls back to fill.size() channels if the count is unset.
+    const int num_channels = this->params.Get<int>("height_scan_num_channels", static_cast<int>(fill.size()));
+    if (num_channels <= 0 || static_cast<int>(fill.size()) != num_channels || num_points % num_channels != 0)
+    {
+        std::cout << LOGGER::WARNING << "height_scan_fill (" << fill.size() << " values) / height_scan_num_channels ("
+                  << num_channels << ") inconsistent with num_height_scan_points (" << num_points
+                  << "); falling back to uniform 0.31 fill." << std::endl;
+        return std::vector<float>(num_points, 0.31f);
+    }
+    const int per_channel = num_points / num_channels;
+    std::vector<float> height_scan(num_points);
+    for (int c = 0; c < num_channels; ++c)
+    {
+        std::fill(height_scan.begin() + c * per_channel, height_scan.begin() + (c + 1) * per_channel, fill[c]);
+    }
+    return height_scan;
 }
 
 void RL::InitOutputs()

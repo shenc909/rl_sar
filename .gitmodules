@@ -18,4 +18,4 @@
 	url = https://github.com/AgibotTech/agibot_D1_Edu-Ultra.git
 [submodule "src/robot_self_filter"]
 	path = src/robot_self_filter
-	url = https://github.com/leggedrobotics/robot_self_filter.git
+	url = git@github.com:shenc909/robot_self_filter.git

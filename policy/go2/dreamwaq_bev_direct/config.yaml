@@ -1,0 +1,63 @@
+# Copyright (c) 2024-2025 Ziqi Fan
+# SPDX-License-Identifier: Apache-2.0
+
+go2/dreamwaq_bev_direct:
+  model_name: "dreamwaq_bev_direct.pt"
+  transition_duration: 2.0
+  num_observations: 45
+  num_height_scan_points: 374          # 2-channel BEV grid: 2 * (17 * 11) = 374
+  height_scan_num_channels: 2          # channel-major: [height(187), occupancy(187)]
+  height_scan_fill: [0.30, 1.0]        # flat-ground proxy used before the first lidar scan / as fallback
+  height_scan_source: "lidar_bev"      # rl_sim: rasterize the simulated L1 lidar cloud into the BEV
+  bev_x_range: [-0.8, 0.8]             # forward grid extent (m); 17 cells at 0.1 res
+  bev_y_range: [-0.5, 0.5]             # lateral grid extent (m); 11 cells at 0.1 res
+  bev_resolution: 0.1
+  bev_height_stat: "max"               # per-cell aggregation: top surface (matches training)
+  bev_lidar_mount_xyz: [0.28945, 0.0, -0.046825]  # radar_joint origin (L1 mount, base frame)
+  bev_lidar_mount_rpy: [0.0, 2.8782, 0.0]         # radar_joint rotation (forward-down dome)
+  observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
+  observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
+  observations_history_priority: "term"  # "time" or "term" priority
+  clip_obs: 100.0
+  clip_actions_lower: [-10, -10, -10, -10,
+                       -10, -10, -10, -10,
+                       -10, -10, -10, -10]
+  clip_actions_upper: [10, 10, 10, 10,
+                       10, 10, 10, 10,
+                       10, 10, 10, 10]
+  rl_kp: [25, 25, 25, 25,
+          25, 25, 25, 25,
+          25, 25, 25, 25]
+  rl_kd: [0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5]
+  fixed_kp: [60, 60, 60, 60,
+             60, 60, 60, 60,
+             60, 60, 60, 60]
+  fixed_kd: [5, 5, 5, 5,
+             5, 5, 5, 5,
+             5, 5, 5, 5]
+  num_of_dofs: 12
+  action_scale: [0.25, 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25, 0.25]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 1.0
+  dof_pos_scale: 1.0
+  dof_vel_scale: 1.0
+  commands_scale: [1.0, 1.0, 1.0]
+  joystick_scale: [1.0, 1.0, 1.0, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
+  torque_limits: [23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5]
+  default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                    0.8000,  0.8000,  1.0000,  1.0000,
+                    -1.5000, -1.5000, -1.5000, -1.5000]
+  init_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                 0.8000,  0.8000,  1.0000,  1.0000,
+                 -1.5000, -1.5000, -1.5000, -1.5000]
+#   joint_mapping: [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8]
+  explicit_joint_names: ["FL_hip_joint",   "FR_hip_joint",   "RL_hip_joint",   "RR_hip_joint",
+                         "FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint",
+                         "FL_calf_joint",  "FR_calf_joint",  "RL_calf_joint",  "RR_calf_joint"]

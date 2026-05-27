@@ -222,6 +222,11 @@ public:
     // rl functions
     virtual std::vector<float> Forward() = 0;
     std::vector<float> ComputeObservation();
+    // Build the height_scan placeholder. Defaults to a uniform 0.31 fill; if the config defines
+    // "height_scan_fill" (one constant per channel) the vector is split into "height_scan_num_channels"
+    // equal contiguous segments (channel-major), each filled with its constant. Used wherever a robot/sim
+    // has no real height-scan source (e.g. rl_sim's flat-ground proxy).
+    std::vector<float> MakeHeightScanFill() const;
     virtual void GetState(RobotState<float> *state) = 0;
     virtual void SetCommand(const RobotCommand<float> *command) = 0;
     void StateController(const RobotState<float> *state, RobotCommand<float> *command);

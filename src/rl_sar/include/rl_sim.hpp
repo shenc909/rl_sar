@@ -42,6 +42,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/joy.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <rcl_interfaces/srv/get_parameters.hpp>
@@ -123,6 +124,12 @@ private:
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);
     void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
+    // BEV lidar: subscribe to the self-filtered cloud and rasterize it into the height_scan BEV.
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_subscriber;
+    sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud;
+    std::mutex lidar_mutex;
+    void LidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    std::vector<float> ComputeHeightScanBEV();
 #endif
 
     // others
