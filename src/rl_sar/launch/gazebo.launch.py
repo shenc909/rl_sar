@@ -3,7 +3,8 @@
 
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command
 from launch_ros.actions import Node
@@ -13,6 +14,8 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     rname = LaunchConfiguration("rname")
+    gui = LaunchConfiguration("gui")
+    use_joy = LaunchConfiguration("use_joy")
 
     wname = "stairs"
     robot_name = ParameterValue(Command(["echo -n ", rname]), value_type=str)
@@ -44,6 +47,9 @@ def generate_launch_description():
             # "verbose": "true",
             # "pause": "true",  # Not Available
             "world": os.path.join(get_package_share_directory("rl_sar"), "worlds", wname + ".world"),
+            # gui:=false runs gzserver headless. Useful when gzclient hangs at startup
+            # with a game controller plugged in (a Gazebo-Classic GUI + joystick issue).
+            "gui": gui,
         }.items(),
     )
 
@@ -77,11 +83,22 @@ def generate_launch_description():
         executable='joy_node',
         name='joy_node',
         output='screen',
+        condition=IfCondition(use_joy),
+        # The joy package links SDL2. SDL's default init grabs real video/audio
+        # drivers (X11/GL/ALSA), which races with the Gazebo-Classic GUI's own
+        # GL/X11 startup and intermittently hangs gzclient (with or without a
+        # controller attached). Forcing the dummy drivers keeps SDL's joystick
+        # subsystem fully working while never touching the display gzclient owns,
+        # which removes the race at its source.
+        additional_env={'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy'},
         parameters=[{
             'deadzone': 0.1,
             'autorepeat_rate': 0.0,
         }],
     )
+    # Belt-and-suspenders: also start joy_node only after gzclient has come up, so
+    # the two never initialize concurrently even if the env guard above is incomplete.
+    delayed_joy_node = TimerAction(period=8.0, actions=[joy_node])
 
     param_node = Node(
         package="demo_nodes_cpp",
@@ -99,11 +116,21 @@ def generate_launch_description():
             description="Robot name (e.g., a1, go2)",
             default_value=TextSubstitution(text=""),
         ),
+        DeclareLaunchArgument(
+            "gui",
+            description="Launch the Gazebo client GUI (set false if gzclient hangs with a joystick attached)",
+            default_value="true",
+        ),
+        DeclareLaunchArgument(
+            "use_joy",
+            description="Start joy_node (set false to launch without grabbing the joystick device)",
+            default_value="true",
+        ),
         robot_state_publisher_node,
         gazebo,
         spawn_entity,
         joint_state_broadcaster_node,
         # robot_joint_controller_node,  # Spawn in rl_sim.cpp
-        joy_node,
+        delayed_joy_node,
         param_node,
     ])

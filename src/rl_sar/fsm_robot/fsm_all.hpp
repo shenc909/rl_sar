@@ -17,6 +17,7 @@
 #include "fsm_gr1t2.hpp"
 #include "fsm_l4w4.hpp"
 #include "fsm_lite3.hpp"
+#include "fsm_ril_go2.hpp"
 #include "fsm_tita.hpp"
 
 #endif // FSM_ALL_HPP
