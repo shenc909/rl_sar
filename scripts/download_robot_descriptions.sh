@@ -32,7 +32,7 @@ REPO_URL="https://github.com/shenc909/rl_sar_zoo.git"
 REPO_BRANCH="dev"
 
 # Expected version - update this when URDF files need to be updated
-EXPECTED_VERSION="1.0.1"
+EXPECTED_VERSION="1.0.2"
 
 # Robot descriptions VERSION file (installed version)
 ROBOT_DESC_VERSION_FILE="${ROBOT_DESC_DIR}/VERSION"
