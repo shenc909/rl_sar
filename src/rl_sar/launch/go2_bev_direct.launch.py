@@ -28,6 +28,9 @@ def generate_launch_description():
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
     lidar_frame = LaunchConfiguration("lidar_frame")
     lidar_parent_frame = LaunchConfiguration("lidar_parent_frame")
+    lidar_yaw = LaunchConfiguration("lidar_yaw")
+    lidar_pitch = LaunchConfiguration("lidar_pitch")
+    lidar_roll = LaunchConfiguration("lidar_roll")
 
     robot_description = ParameterValue(
         Command([
@@ -55,8 +58,10 @@ def generate_launch_description():
     )
 
     # Real L1 cloud arrives in `utlidar_lidar`, which is not in the Go2 URDF; bolt
-    # it to the existing `radar` link (the URDF's L1 mount) with an identity TF so
-    # robot_self_filter can resolve the cloud's frame against the robot tree.
+    # it to the existing `radar` link (the URDF's L1 mount) so robot_self_filter
+    # can resolve the cloud's frame against the robot tree. The URDF's `radar`
+    # joint orientation does not match the real L1 sensor axes — observed offset
+    # is roughly -45 deg yaw and -15 deg roll (tune via launch args).
     # Positional args (x y z yaw pitch roll parent child) — the only form Foxy's
     # static_transform_publisher accepts; the --frame-id/--x flag syntax is
     # Humble+ only and silently no-ops here.
@@ -67,7 +72,7 @@ def generate_launch_description():
         output="screen",
         arguments=[
             "0", "0", "0",
-            "0", "0", "0",
+            lidar_yaw, lidar_pitch, lidar_roll,
             lidar_parent_frame,
             lidar_frame,
         ],
@@ -133,6 +138,21 @@ def generate_launch_description():
             "lidar_parent_frame",
             description="URDF link the L1 sensor frame attaches to",
             default_value="radar",
+        ),
+        DeclareLaunchArgument(
+            "lidar_yaw",
+            description="L1 sensor yaw (rad) relative to radar link; default -45 deg",
+            default_value="-0.7853981633974483",
+        ),
+        DeclareLaunchArgument(
+            "lidar_pitch",
+            description="L1 sensor pitch (rad) relative to radar link",
+            default_value="0.0",
+        ),
+        DeclareLaunchArgument(
+            "lidar_roll",
+            description="L1 sensor roll (rad) relative to radar link; default -15 deg",
+            default_value="-0.2617993877991494",
         ),
         robot_state_publisher_node,
         low_state_to_joint_states_node,
