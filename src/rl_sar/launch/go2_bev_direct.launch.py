@@ -57,16 +57,19 @@ def generate_launch_description():
     # Real L1 cloud arrives in `utlidar_lidar`, which is not in the Go2 URDF; bolt
     # it to the existing `radar` link (the URDF's L1 mount) with an identity TF so
     # robot_self_filter can resolve the cloud's frame against the robot tree.
+    # Positional args (x y z yaw pitch roll parent child) — the only form Foxy's
+    # static_transform_publisher accepts; the --frame-id/--x flag syntax is
+    # Humble+ only and silently no-ops here.
     utlidar_static_tf_node = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
         name="radar_to_utlidar_lidar",
         output="screen",
         arguments=[
-            "--x", "0", "--y", "0", "--z", "0",
-            "--roll", "0", "--pitch", "0", "--yaw", "0",
-            "--frame-id", lidar_parent_frame,
-            "--child-frame-id", lidar_frame,
+            "0", "0", "0",
+            "0", "0", "0",
+            lidar_parent_frame,
+            lidar_frame,
         ],
     )
 
