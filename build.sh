@@ -131,9 +131,13 @@ run_ros_build() {
     # cmake-args to every package).
     colcon_extra_args+=(--cmake-args -DCMAKE_BUILD_TYPE="$build_type" --no-warn-unused-cli)
     local catkin_extra_args=(--force-cmake --cmake-args -DCMAKE_BUILD_TYPE="$build_type" --no-warn-unused-cli)
+    # Always pass -DTARGET_ROBOT (empty when no robot given) so the CMake cache
+    # stays in sync with the flag. Otherwise a previous "-r <robot>" leaves
+    # TARGET_ROBOT cached, and a later plain build silently skips rl_sim and the
+    # other robots' executables (they are gated on TARGET_ROBOT STREQUAL "").
+    colcon_extra_args+=("-DTARGET_ROBOT=$robot")
+    catkin_extra_args+=("-DTARGET_ROBOT=$robot")
     if [ -n "$robot" ]; then
-        colcon_extra_args+=("-DTARGET_ROBOT=$robot")
-        catkin_extra_args+=("-DTARGET_ROBOT=$robot")
         print_info "Target robot: $robot (only rl_real_$robot will be built)"
     fi
 
@@ -382,7 +386,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
-    echo -e "  -r, --robot NAME Build only the specified robot (a1|lite3|go2|g1|l4w4|d1)"
+    echo -e "  -r, --robot NAME Build only the specified robot (a1|lite3|go2|g1|l4w4|d1|ril_go2)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -433,10 +437,10 @@ main() {
     # Validate --robot value
     if [ -n "$robot" ]; then
         case "$robot" in
-            a1|lite3|go2|g1|l4w4|d1) ;;
+            a1|lite3|go2|g1|l4w4|d1|ril_go2) ;;
             *)
                 print_error "Unknown robot: $robot"
-                print_info "Valid robots: a1, lite3, go2, g1, l4w4, d1"
+                print_info "Valid robots: a1, lite3, go2, g1, l4w4, d1, ril_go2"
                 exit 1 ;;
         esac
     fi

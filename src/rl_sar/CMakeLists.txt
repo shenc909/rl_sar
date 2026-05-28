@@ -19,9 +19,9 @@ endif()
 # is configured. Avoids pulling incompatible vendor SDKs into the build
 # (e.g. agibot D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available
 # on Ubuntu 20.04 / Jetson). Empty = build all robots (legacy behavior).
-set(TARGET_ROBOT "" CACHE STRING "Build only the specified robot's deploy executable (a1|lite3|go2|g1|l4w4|d1). Empty = build all.")
+set(TARGET_ROBOT "" CACHE STRING "Build only the specified robot's deploy executable (a1|lite3|go2|g1|l4w4|d1|ril_go2). Empty = build all.")
 if(TARGET_ROBOT)
-    set(_valid_robots a1 lite3 go2 g1 l4w4 d1)
+    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 ril_go2)
     if(NOT TARGET_ROBOT IN_LIST _valid_robots)
         message(FATAL_ERROR "TARGET_ROBOT='${TARGET_ROBOT}' is invalid. Valid: ${_valid_robots}")
     endif()
@@ -566,6 +566,25 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         robot_msgs
     )
     install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
+endif()
+
+# executable for rl real ril go2
+if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
+   AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "ril_go2"))
+    add_executable(rl_real_ril_go2 src/rl_real_ril_go2.cpp)
+    target_link_libraries(rl_real_ril_go2
+        rl_sdk
+        observation_buffer
+            ${YAML_CPP_LIBRARIES}
+    )
+    ament_target_dependencies(rl_real_ril_go2
+        rclcpp
+        geometry_msgs
+        sensor_msgs
+        std_msgs
+        robot_msgs
+    )
+    install(TARGETS rl_real_ril_go2 DESTINATION lib/${PROJECT_NAME})
 endif()
 
 # executable for rl real g1

@@ -19,3 +19,7 @@
 [submodule "src/robot_self_filter"]
 	path = src/robot_self_filter
 	url = git@github.com:shenc909/robot_self_filter.git
+[submodule "src/ril_robot_descriptions"]
+	path = src/ril_robot_descriptions
+	url = git@github.com:shenc909/ril_robot_descriptions.git
+
