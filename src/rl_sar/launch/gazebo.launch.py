@@ -146,6 +146,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "bev_lidar",
             description="Run the BEV lidar self-filter node (go2 only)",
+            default_value="true",
+        ),
+        DeclareLaunchArgument(
             "gui",
             description="Launch the Gazebo client GUI (set false if gzclient hangs with a joystick attached)",
             default_value="true",
