@@ -78,6 +78,11 @@ def generate_launch_description():
         ],
     )
 
+    # target_frame defaults to lidar_parent_frame ("radar"): the accumulator
+    # looks up the static utlidar_lidar->radar TF (published by the static_tf
+    # node above) and republishes the cloud in the radar frame. Downstream
+    # (self_filter, BEV rasterizer) then sees a cloud already in the URDF L1
+    # mount frame, matching the Gazebo sim and bev_lidar_mount_* config.
     accumulate_pointcloud_node = Node(
         package="llc_utils",
         executable="accumulate_pointcloud",
@@ -87,6 +92,7 @@ def generate_launch_description():
             "input_topic": cloud_in,
             "output_topic": accumulated_topic,
             "publish_rate_hz": publish_rate_hz,
+            "target_frame": lidar_parent_frame,
         }],
     )
 
