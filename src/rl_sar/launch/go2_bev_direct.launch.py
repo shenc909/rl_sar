@@ -26,6 +26,8 @@ def generate_launch_description():
     cloud_in = LaunchConfiguration("cloud_in")
     accumulated_topic = LaunchConfiguration("accumulated_topic")
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
+    lidar_frame = LaunchConfiguration("lidar_frame")
+    lidar_parent_frame = LaunchConfiguration("lidar_parent_frame")
 
     robot_description = ParameterValue(
         Command([
@@ -50,6 +52,22 @@ def generate_launch_description():
         executable="low_state_to_joint_states",
         name="low_state_to_joint_states",
         output="screen",
+    )
+
+    # Real L1 cloud arrives in `utlidar_lidar`, which is not in the Go2 URDF; bolt
+    # it to the existing `radar` link (the URDF's L1 mount) with an identity TF so
+    # robot_self_filter can resolve the cloud's frame against the robot tree.
+    utlidar_static_tf_node = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="radar_to_utlidar_lidar",
+        output="screen",
+        arguments=[
+            "--x", "0", "--y", "0", "--z", "0",
+            "--roll", "0", "--pitch", "0", "--yaw", "0",
+            "--frame-id", lidar_parent_frame,
+            "--child-frame-id", lidar_frame,
+        ],
     )
 
     accumulate_pointcloud_node = Node(
@@ -103,8 +121,19 @@ def generate_launch_description():
             description="Accumulator republish rate; buffer is flushed each tick",
             default_value="10.0",
         ),
+        DeclareLaunchArgument(
+            "lidar_frame",
+            description="frame_id stamped on the real L1 PointCloud2",
+            default_value="utlidar_lidar",
+        ),
+        DeclareLaunchArgument(
+            "lidar_parent_frame",
+            description="URDF link the L1 sensor frame attaches to",
+            default_value="radar",
+        ),
         robot_state_publisher_node,
         low_state_to_joint_states_node,
+        utlidar_static_tf_node,
         accumulate_pointcloud_node,
         self_filter_node,
     ])
