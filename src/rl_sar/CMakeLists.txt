@@ -15,17 +15,22 @@ if(USE_CMAKE)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 endif()
 
-# Per-robot deploy mode: when set, only the matching rl_real_<robot> target
-# is configured. Avoids pulling incompatible vendor SDKs into the build
-# (e.g. agibot D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available
-# on Ubuntu 20.04 / Jetson). Empty = build all robots (legacy behavior).
-set(TARGET_ROBOT "" CACHE STRING "Build only the specified robot's deploy executable (a1|lite3|go2|g1|l4w4|d1|ril_go2). Empty = build all.")
+# Per-target build mode: when set, only the matching executable is configured.
+# Avoids pulling incompatible vendor SDKs and gazebo into the build (e.g. agibot
+# D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available on Ubuntu 20.04 /
+# Jetson; gazebo not present on robot deploy machines). Empty = full build.
+# Use "sim" to build only rl_sim (Gazebo) without any robot SDKs.
+set(TARGET_ROBOT "" CACHE STRING "Build only the specified target executable (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim). Empty = build all.")
 if(TARGET_ROBOT)
-    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 ril_go2)
+    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 ril_go2 sim)
     if(NOT TARGET_ROBOT IN_LIST _valid_robots)
         message(FATAL_ERROR "TARGET_ROBOT='${TARGET_ROBOT}' is invalid. Valid: ${_valid_robots}")
     endif()
-    message(STATUS "TARGET_ROBOT=${TARGET_ROBOT} (only rl_real_${TARGET_ROBOT} will be built)")
+    if(TARGET_ROBOT STREQUAL "sim")
+        message(STATUS "TARGET_ROBOT=sim (only rl_sim will be built)")
+    else()
+        message(STATUS "TARGET_ROBOT=${TARGET_ROBOT} (only rl_real_${TARGET_ROBOT} will be built)")
+    endif()
 endif()
 
 if(NOT USE_CMAKE)
@@ -59,48 +64,39 @@ add_definitions(-DCMAKE_CURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_definitions(-DPOLICY_DIR="${PROJECT_ROOT_DIR}/policy")
 add_definitions(-DBOOST_BIND_GLOBAL_PLACEHOLDERS)
 
+# Universal ROS deps (every executable needs these). Target- and
+# simulator-specific finds are scoped to their own per-target blocks further
+# down so e.g. `./build.sh -r ril_go2` doesn't require gazebo to be installed.
 if(NOT USE_CMAKE)
     if($ENV{ROS_DISTRO} MATCHES "noetic")
-        find_package(catkin REQUIRED COMPONENTS
-            controller_manager
-            genmsg
-            joint_state_controller
-            robot_state_publisher
-            roscpp
-            gazebo_ros
-            std_msgs
-            tf
-            geometry_msgs
-            robot_msgs
-            robot_joint_controller
-            rospy
-        )
-        catkin_package(
-            CATKIN_DEPENDS
-            robot_joint_controller
-            rospy
-        )
+        # Build the catkin components list incrementally so sim-only and
+        # robot-specific dependencies aren't required for compartmentalized
+        # builds. find_package(catkin ...) replaces rather than accumulates,
+        # so we collect all needed components here and issue one call.
+        set(_catkin_components roscpp std_msgs geometry_msgs robot_msgs)
+        set(_catkin_pkg_deps "")
+        if(TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim")
+            list(APPEND _catkin_components
+                controller_manager genmsg joint_state_controller
+                robot_state_publisher gazebo_ros tf rospy robot_joint_controller)
+            list(APPEND _catkin_pkg_deps robot_joint_controller rospy)
+        endif()
+        find_package(catkin REQUIRED COMPONENTS ${_catkin_components})
+        if(_catkin_pkg_deps)
+            catkin_package(CATKIN_DEPENDS ${_catkin_pkg_deps})
+        else()
+            catkin_package()
+        endif()
+        include_directories(${catkin_INCLUDE_DIRS})
     elseif($ENV{ROS_DISTRO} MATCHES "foxy|humble")
         find_package(ament_cmake REQUIRED)
-        find_package(joint_state_broadcaster REQUIRED)
-        find_package(robot_state_publisher REQUIRED)
         find_package(rclcpp REQUIRED)
-        find_package(gazebo_ros REQUIRED)
         find_package(std_msgs REQUIRED)
-        find_package(sensor_msgs REQUIRED)
-        find_package(robot_msgs REQUIRED)
-        find_package(robot_joint_controller REQUIRED)
-        find_package(rclpy REQUIRED)
-        find_package(gazebo_msgs REQUIRED)
-        find_package(std_srvs REQUIRED)
         find_package(geometry_msgs REQUIRED)
-        find_package(unitree_go REQUIRED)
-        find_package(unitree_hg REQUIRED)
-        find_package(unitree_api REQUIRED)
-        ament_package()
+        find_package(robot_msgs REQUIRED)
+        # ament_package() is called at the very bottom of this file after all
+        # per-target install() commands so it sees the full export set.
     endif()
-    add_compile_options(${GAZEBO_CXX_FLAGS})
-    find_package(gazebo REQUIRED)
 endif()
 
 # Inference Runtime
@@ -286,84 +282,13 @@ else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-# unitree_legged_sdk
-if(SYSTEM_TYPE STREQUAL "Linux")
-add_library(unitree_legged_sdk SHARED IMPORTED)
-set_target_properties(unitree_legged_sdk PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/include"
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so"
-)
-set(UNITREE_A1_LIBS Threads::Threads unitree_legged_sdk lcm)
-if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-    file(GLOB GLOB_UNITREE_LEGGED_SDK "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so")
-    install(FILES
-        ${GLOB_UNITREE_LEGGED_SDK}
-        DESTINATION lib/
-    )
-    endif()
-endif()
-
-# unitree_sdk2
-if(SYSTEM_TYPE STREQUAL "Linux")
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
-add_subdirectory(library/thirdparty/robot_sdk/unitree/unitree_sdk2)
-endif()
-
-# l4w4_sdk
-add_library(l4w4_sdk INTERFACE)
-target_include_directories(l4w4_sdk INTERFACE
-    library/thirdparty/robot_sdk/zhinao/l4w4_sdk
-)
-target_link_libraries(l4w4_sdk INTERFACE Threads::Threads)
-
-# Lite3_MotionSDK
-if(SYSTEM_TYPE STREQUAL "Linux")
-add_library(lite3_motionsdk SHARED IMPORTED)
-set_target_properties(lite3_motionsdk PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include;${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include/common"
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so"
-)
-set(LITE3_REAL_LIBS Threads::Threads lite3_motionsdk)
-if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-    file(GLOB GLOB_LITE3_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so")
-    install(FILES
-        ${GLOB_LITE3_SDK_SO}
-        DESTINATION lib/
-    )
-    endif()
-endif()
-
-# Agibot D1 SDK (zsl-1)
-if(SYSTEM_TYPE STREQUAL "Linux")
-    add_library(agibot_d1_sdk SHARED IMPORTED)
-    set_target_properties(agibot_d1_sdk PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/include"
-        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so"
-    )
-    set(AGIBOT_D1_LIBS Threads::Threads agibot_d1_sdk)
-    if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-        file(GLOB GLOB_AGIBOT_D1_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so")
-        install(FILES
-            ${GLOB_AGIBOT_D1_SDK_SO}
-            DESTINATION lib/
-        )
-    endif()
-endif()
-
-# Retroid Gamepad
-if(SYSTEM_TYPE STREQUAL "Linux")
-set(GAMEPAD_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/gamepad.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/retroid_gamepad.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/udp_receiver.cpp
-)
-endif()
-
-if(NOT USE_CMAKE)
-    if($ENV{ROS_DISTRO} MATCHES "noetic")
-        include_directories(${catkin_INCLUDE_DIRS})
-    endif()
-endif()
+# Robot SDK imports (unitree_legged_sdk, unitree_sdk2, l4w4_sdk, lite3_motionsdk,
+# agibot_d1_sdk, retroid gamepad) and the per-robot ROS find_package calls now
+# live inside their consuming target block further down. This keeps e.g.
+# `./build.sh -r ril_go2` from compiling unitree_sdk2 or pulling in gazebo.
+#
+# Note for the catkin (noetic) path: include_directories(${catkin_INCLUDE_DIRS})
+# was already issued by the universal find_package block above.
 
 include_directories(
     include
@@ -432,9 +357,25 @@ if(NOT USE_CMAKE)
     endif()
 endif()
 
-# executable for rl sim
-if(NOT USE_CMAKE AND TARGET_ROBOT STREQUAL "")
+# executable for rl sim (Gazebo). Built for full builds (TARGET_ROBOT="") or
+# the dedicated "-r sim" build. All gazebo/ros_control/rclpy finds are scoped
+# to this block so robot-deploy builds don't require them to be installed.
+if(NOT USE_CMAKE AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim"))
+    if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+        find_package(joint_state_broadcaster REQUIRED)
+        find_package(robot_state_publisher REQUIRED)
+        find_package(gazebo_ros REQUIRED)
+        find_package(robot_joint_controller REQUIRED)
+        find_package(rclpy REQUIRED)
+        find_package(gazebo_msgs REQUIRED)
+        find_package(std_srvs REQUIRED)
+    endif()
+    find_package(gazebo REQUIRED)
+    # Apply gazebo's compile flags only to the rl_sim target so other targets
+    # defined later in this file aren't polluted (and aren't dependent on
+    # whether this block was entered).
     add_executable(rl_sim src/rl_sim.cpp)
+    target_compile_options(rl_sim PRIVATE ${GAZEBO_CXX_FLAGS})
     target_link_libraries(rl_sim
         rl_sdk
         observation_buffer
@@ -461,8 +402,15 @@ if(NOT USE_CMAKE AND TARGET_ROBOT STREQUAL "")
     endif()
 endif()
 
-# executable for rl real a1
+# executable for rl real a1 (unitree_legged_sdk + lcm)
 if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "a1"))
+    add_library(unitree_legged_sdk SHARED IMPORTED)
+    set_target_properties(unitree_legged_sdk PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/include"
+        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so"
+    )
+    set(UNITREE_A1_LIBS Threads::Threads unitree_legged_sdk lcm)
+
     add_executable(rl_real_a1 src/rl_real_a1.cpp)
     target_link_libraries(rl_real_a1
         ${UNITREE_A1_LIBS}
@@ -479,11 +427,26 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
                 geometry_msgs
             )
             install(TARGETS rl_real_a1 DESTINATION lib/${PROJECT_NAME})
+            file(GLOB GLOB_UNITREE_LEGGED_SDK "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so")
+            install(FILES ${GLOB_UNITREE_LEGGED_SDK} DESTINATION lib/)
         endif()
     endif()
 endif()
 
+# executable for rl real lite3 (deeprobotics Lite3 MotionSDK + retroid gamepad)
 if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "lite3"))
+    add_library(lite3_motionsdk SHARED IMPORTED)
+    set_target_properties(lite3_motionsdk PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include;${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include/common"
+        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so"
+    )
+    set(LITE3_REAL_LIBS Threads::Threads lite3_motionsdk)
+    set(GAMEPAD_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/gamepad.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/retroid_gamepad.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/udp_receiver.cpp
+    )
+
     add_executable(rl_real_lite3
         src/rl_real_lite3.cpp
         ${GAMEPAD_SRC}
@@ -506,11 +469,21 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
                 geometry_msgs
             )
             install(TARGETS rl_real_lite3 DESTINATION lib/${PROJECT_NAME})
+            file(GLOB GLOB_LITE3_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so")
+            install(FILES ${GLOB_LITE3_SDK_SO} DESTINATION lib/)
         endif()
     endif()
 endif()
 
-# executable for rl real go2
+# unitree_sdk2 is shared by rl_real_go2 and rl_real_g1. Build it once when
+# either target (or a full build) is selected.
+if(SYSTEM_TYPE STREQUAL "Linux"
+   AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2" OR TARGET_ROBOT STREQUAL "g1"))
+    set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
+    add_subdirectory(library/thirdparty/robot_sdk/unitree/unitree_sdk2)
+endif()
+
+# executable for rl real go2 (unitree_sdk2)
 if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2"))
     add_executable(rl_real_go2 src/rl_real_go2.cpp)
     target_link_libraries(rl_real_go2
@@ -546,9 +519,14 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
     endif()
 endif()
 
-# executable for rl real go2 ros2
+# executable for rl real go2 ros2 (uses unitree's ROS2 messages, no unitree_sdk2)
 if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
    AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2"))
+    find_package(sensor_msgs REQUIRED)
+    find_package(unitree_go REQUIRED)
+    find_package(unitree_hg REQUIRED)
+    find_package(unitree_api REQUIRED)
+
     add_executable(rl_real_go2_ros2 src/rl_real_go2_ros2.cpp)
     target_link_libraries(rl_real_go2_ros2
         rl_sdk
@@ -568,9 +546,12 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
     install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
 endif()
 
-# executable for rl real ril go2
+# executable for rl real ril go2 (pure ROS2, no unitree SDKs)
 if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
    AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "ril_go2"))
+    find_package(sensor_msgs REQUIRED)
+    find_package(quickbot_interface REQUIRED)
+
     add_executable(rl_real_ril_go2 src/rl_real_ril_go2.cpp)
     target_link_libraries(rl_real_ril_go2
         rl_sdk
@@ -583,6 +564,7 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         sensor_msgs
         std_msgs
         robot_msgs
+        quickbot_interface
     )
     install(TARGETS rl_real_ril_go2 DESTINATION lib/${PROJECT_NAME})
 endif()
@@ -618,8 +600,14 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
     endif()
 endif()
 
-# executable for rl real l4w4
+# executable for rl real l4w4 (zhinao l4w4 header-only SDK)
 if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "l4w4"))
+    add_library(l4w4_sdk INTERFACE)
+    target_include_directories(l4w4_sdk INTERFACE
+        library/thirdparty/robot_sdk/zhinao/l4w4_sdk
+    )
+    target_link_libraries(l4w4_sdk INTERFACE Threads::Threads)
+
     add_executable(rl_real_l4w4 src/rl_real_l4w4.cpp)
     target_link_libraries(rl_real_l4w4
         l4w4_sdk
@@ -640,8 +628,15 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
     endif()
 endif()
 
-# executable for rl real d1
+# executable for rl real d1 (agibot D1 SDK; zsl-1 variant)
 if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "d1"))
+    add_library(agibot_d1_sdk SHARED IMPORTED)
+    set_target_properties(agibot_d1_sdk PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/include"
+        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so"
+    )
+    set(AGIBOT_D1_LIBS Threads::Threads agibot_d1_sdk)
+
     add_executable(rl_real_d1 src/rl_real_d1.cpp)
     target_link_libraries(rl_real_d1
         ${AGIBOT_D1_LIBS}
@@ -662,6 +657,8 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT ST
                 geometry_msgs
             )
             install(TARGETS rl_real_d1 DESTINATION lib/${PROJECT_NAME})
+            file(GLOB GLOB_AGIBOT_D1_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so")
+            install(FILES ${GLOB_AGIBOT_D1_SDK_SO} DESTINATION lib/)
         endif()
     endif()
 endif()
@@ -693,7 +690,7 @@ endif()
 # ========================
 # mujoco
 # ========================
-if(USE_MUJOCO AND TARGET_ROBOT STREQUAL "")
+if(USE_MUJOCO AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim"))
     add_compile_definitions(USE_MUJOCO)
     set(MUJOCO_DIR "${PROJECT_ROOT_DIR}/library/mujoco")
 
@@ -867,3 +864,10 @@ if(USE_MUJOCO)
     message(STATUS "MuJoCo: Enabled")
 endif()
 message(STATUS "========================================")
+
+# ament_package() must be called once for ROS2 packages. Placed at the very end
+# so it sees all targets and install() commands set up by the per-target blocks
+# above.
+if(NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble")
+    ament_package()
+endif()

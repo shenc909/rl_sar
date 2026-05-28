@@ -8,22 +8,44 @@
 
     <license>Apache-2.0</license>
 
+    <!--
+        Per-target dependency compartmentalization via REP-149 conditions.
+        TARGET_ROBOT is exported by build.sh before invoking colcon; an
+        unset/empty value (the bare `./build.sh` full build) hits the `== ''`
+        branch and includes everything. Per-target `./build.sh -r <target>`
+        only resolves the deps relevant to that executable's CMake block.
+    -->
+
     <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <!-- Universal: every executable links rl_sdk which uses these. -->
     <depend>rclcpp</depend>
     <depend>std_msgs</depend>
-    <depend>sensor_msgs</depend>
-    <depend>gazebo_ros</depend>
-    <depend>yaml-cpp</depend>
-    <depend>robot_msgs</depend>
     <depend>geometry_msgs</depend>
-    <depend>robot_joint_controller</depend>
-    <depend>controller_manager</depend>
-    <depend>joint_state_controller</depend>
-    <depend>robot_state_publisher</depend>
-    <depend>unitree_go</depend>
-    <depend>unitree_hg</depend>
-    <depend>unitree_api</depend>
-    <depend>rospy</depend>
+    <depend>robot_msgs</depend>
+    <depend>yaml-cpp</depend>
+
+    <!-- rl_sim (Gazebo) — full build or `-r sim`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_ros</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_msgs</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">controller_manager</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">joint_state_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_state_publisher</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_joint_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">std_srvs</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rclpy</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rospy</depend>
+
+    <!-- sensor_msgs is needed by rl_real_go2_ros2 and rl_real_ril_go2. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2' or $TARGET_ROBOT == 'ril_go2'">sensor_msgs</depend>
+
+    <!-- rl_real_go2_ros2 (Unitree's ROS2 msg packages) — full build or `-r go2`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_go</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_hg</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_api</depend>
+
+    <!-- rl_real_ril_go2 (unitree-free Go2) — full build or `-r ril_go2`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'ril_go2'">quickbot_interface</depend>
 
     <export>
         <build_type>ament_cmake</build_type>

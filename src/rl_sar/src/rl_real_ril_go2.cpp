@@ -47,17 +47,14 @@ RL_Real::RL_Real(int argc, char **argv)
     this->InitOutputs();
     this->InitControl();
 
-    const int num_of_dofs = this->params.Get<int>("num_of_dofs");
-    this->robot_command_msg.motor_command.resize(num_of_dofs);
-
-    // joint-command publisher (robot_msgs/RobotCommand, policy joint order)
-    this->robot_command_publisher = ros2_node->create_publisher<robot_msgs::msg::RobotCommand>(
+    // joint-command publisher (quickbot_interface/MotorSetpoints, fixed-12 bridge order)
+    this->motor_setpoints_publisher = ros2_node->create_publisher<quickbot_interface::msg::MotorSetpoints>(
         TOPIC_JOINT_COMMAND, rclcpp::SystemDefaultsQoS());
 
     // standard sensor subscribers
-    this->joint_state_subscriber = ros2_node->create_subscription<sensor_msgs::msg::JointState>(
+    this->motor_feedback_subscriber = ros2_node->create_subscription<quickbot_interface::msg::MotorFeedback>(
         TOPIC_JOINT_STATES, rclcpp::SensorDataQoS(),
-        [this] (const sensor_msgs::msg::JointState::SharedPtr msg) {this->JointStateCallback(msg);}
+        [this] (const quickbot_interface::msg::MotorFeedback::SharedPtr msg) {this->MotorFeedbackCallback(msg);}
     );
     this->imu_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Imu>(
         TOPIC_IMU, rclcpp::SensorDataQoS(),
@@ -190,31 +187,34 @@ void RL_Real::GetState(RobotState<float> *state)
     state->imu.gyroscope[1] = this->imu_msg.angular_velocity.y;
     state->imu.gyroscope[2] = this->imu_msg.angular_velocity.z;
 
-    // Joint feedback: map each policy joint (joint_names[i]) to the incoming
-    // JointState by name, so the publisher's joint ordering is irrelevant.
-    auto joint_names = this->params.Get<std::vector<std::string>>("joint_names");
+    // Joint feedback: bridge publishes a fixed MotorCmd[12] in physical/SDK order
+    // (FR/FL/RR/RL × hip/thigh/calf). joint_mapping[i] gives the bridge index for
+    // the i-th policy joint, so per-policy reorderings (e.g. dreamwaq's FL/FR/RL/RR)
+    // are handled transparently.
+    auto joint_mapping = this->params.Get<std::vector<int>>("joint_mapping");
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
-        auto it = this->joint_name_to_index.find(joint_names[i]);
-        if (it == this->joint_name_to_index.end()) continue; // keep previous / zero
-        const int idx = it->second;
-        state->motor_state.q[i] = this->latest_joint_pos[idx];
-        state->motor_state.dq[i] = this->latest_joint_vel[idx];
-        state->motor_state.tau_est[i] = this->latest_joint_eff[idx];
+        const int bridge_idx = joint_mapping[i];
+        state->motor_state.q[i]       = this->latest_motor_feedback.data[bridge_idx].pos;
+        state->motor_state.dq[i]      = this->latest_motor_feedback.data[bridge_idx].vel;
+        state->motor_state.tau_est[i] = this->latest_motor_feedback.data[bridge_idx].torque;
     }
 }
 
 void RL_Real::SetCommand(const RobotCommand<float> *command)
 {
+    auto joint_mapping = this->params.Get<std::vector<int>>("joint_mapping");
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
-        this->robot_command_msg.motor_command[i].q = command->motor_command.q[i];
-        this->robot_command_msg.motor_command[i].dq = command->motor_command.dq[i];
-        this->robot_command_msg.motor_command[i].kp = command->motor_command.kp[i];
-        this->robot_command_msg.motor_command[i].kd = command->motor_command.kd[i];
-        this->robot_command_msg.motor_command[i].tau = command->motor_command.tau[i];
+        auto& m = this->motor_setpoints_msg.data[joint_mapping[i]];
+        m.pos    = command->motor_command.q[i];
+        m.vel    = command->motor_command.dq[i];
+        m.torque = command->motor_command.tau[i];
+        m.kp     = command->motor_command.kp[i];
+        m.kw     = command->motor_command.kd[i];
+        m.mode   = 0;
     }
-    this->robot_command_publisher->publish(this->robot_command_msg);
+    this->motor_setpoints_publisher->publish(this->motor_setpoints_msg);
 }
 
 void RL_Real::RobotControl()
@@ -344,29 +344,12 @@ void RL_Real::Plot()
     plt::pause(0.0001);
 }
 
-void RL_Real::JointStateCallback(
-    const sensor_msgs::msg::JointState::SharedPtr msg
+void RL_Real::MotorFeedbackCallback(
+    const quickbot_interface::msg::MotorFeedback::SharedPtr msg
 )
 {
     std::lock_guard<std::mutex> lock(this->state_mutex);
-    // (Re)build the name->index map whenever the incoming layout changes.
-    if (this->joint_name_to_index.size() != msg->name.size())
-    {
-        this->joint_name_to_index.clear();
-        for (size_t i = 0; i < msg->name.size(); ++i)
-        {
-            this->joint_name_to_index[msg->name[i]] = static_cast<int>(i);
-        }
-        this->latest_joint_pos.assign(msg->name.size(), 0.0f);
-        this->latest_joint_vel.assign(msg->name.size(), 0.0f);
-        this->latest_joint_eff.assign(msg->name.size(), 0.0f);
-    }
-    for (size_t i = 0; i < msg->name.size(); ++i)
-    {
-        if (i < msg->position.size()) this->latest_joint_pos[i] = static_cast<float>(msg->position[i]);
-        if (i < msg->velocity.size()) this->latest_joint_vel[i] = static_cast<float>(msg->velocity[i]);
-        if (i < msg->effort.size())   this->latest_joint_eff[i] = static_cast<float>(msg->effort[i]);
-    }
+    this->latest_motor_feedback = *msg;
     this->joint_state_received = true;
 }
 
@@ -384,52 +367,40 @@ void RL_Real::JoyCallback(
 {
     this->joy_msg = *msg;
 
-    // Layout (Xbox-style via Linux xpad / ROS joy_node, D-pad reported as buttons):
-    // |__ buttons[]: A=0, B=1, X=2, Y=3, Quick=4, Power=5, Menu=6, LS=7, RS=8,
-    //                LB=9, RB=10, DPadUp=11, DPadDown=12, DPadLeft=13, DPadRight=14
-    // |__ axes[]:    Lx=0, Ly=1, LT=2, Rx=3, Ry=4, RT=5
+    // Layout (RC controller):
+    // |__ buttons[]: estop=0 (NO TOUCH, handled at lower level),
+    //                2-pole nav mode toggle=1 (0=off, 1=on),
+    //                right 3-pole fsm_state=2 (0=GetDown, 1=GetUp, 2=Locomotion),
+    //                left 3-pole policy selector=3 (0=none, 1=Dreamwaq, 2=DreamwaqSpeedy; consulted only when btn(2)==2),
+    //                back momentary btn=4 (no-op for now)
+    // |__ axes[]:    Lx=3, Ly=2, Rx=0, Ry=1
     // Bounds-checked accessors so a controller with fewer axes/buttons can't OOB-index.
-    auto btn  = [&](size_t i) { return i < this->joy_msg.buttons.size() && this->joy_msg.buttons[i] != 0; };
-    auto axis = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
+    auto btn_val = [&](size_t i) { return i < this->joy_msg.buttons.size() ? this->joy_msg.buttons[i] : 0; };
+    auto axis    = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
 
-    if (btn(0)) this->control.SetGamepad(Input::Gamepad::A);
-    if (btn(1)) this->control.SetGamepad(Input::Gamepad::B);
-    if (btn(2)) this->control.SetGamepad(Input::Gamepad::X);
-    if (btn(3)) this->control.SetGamepad(Input::Gamepad::Y);
-    if (btn(9)) this->control.SetGamepad(Input::Gamepad::LB);
-    if (btn(10)) this->control.SetGamepad(Input::Gamepad::RB);
-    if (btn(7))  this->control.SetGamepad(Input::Gamepad::LStick);
-    if (btn(8)) this->control.SetGamepad(Input::Gamepad::RStick);
-    if (btn(11)) this->control.SetGamepad(Input::Gamepad::DPadUp);
-    if (btn(12)) this->control.SetGamepad(Input::Gamepad::DPadDown);
-    if (btn(13)) this->control.SetGamepad(Input::Gamepad::DPadLeft);
-    if (btn(14)) this->control.SetGamepad(Input::Gamepad::DPadRight);
-    if (btn(9) && btn(0))  this->control.SetGamepad(Input::Gamepad::LB_A);
-    if (btn(9) && btn(1))  this->control.SetGamepad(Input::Gamepad::LB_B);
-    if (btn(9) && btn(2))  this->control.SetGamepad(Input::Gamepad::LB_X);
-    if (btn(9) && btn(3))  this->control.SetGamepad(Input::Gamepad::LB_Y);
-    if (btn(9) && btn(7))  this->control.SetGamepad(Input::Gamepad::LB_LStick);
-    if (btn(9) && btn(8)) this->control.SetGamepad(Input::Gamepad::LB_RStick);
-    if (btn(9) && btn(11)) this->control.SetGamepad(Input::Gamepad::LB_DPadUp);
-    if (btn(9) && btn(12)) this->control.SetGamepad(Input::Gamepad::LB_DPadDown);
-    if (btn(9) && btn(13)) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft);
-    if (btn(9) && btn(14)) this->control.SetGamepad(Input::Gamepad::LB_DPadRight);
-    if (btn(10) && btn(0))  this->control.SetGamepad(Input::Gamepad::RB_A);
-    if (btn(10) && btn(1))  this->control.SetGamepad(Input::Gamepad::RB_B);
-    if (btn(10) && btn(2))  this->control.SetGamepad(Input::Gamepad::RB_X);
-    if (btn(10) && btn(3))  this->control.SetGamepad(Input::Gamepad::RB_Y);
-    if (btn(10) && btn(7))  this->control.SetGamepad(Input::Gamepad::RB_LStick);
-    if (btn(10) && btn(8)) this->control.SetGamepad(Input::Gamepad::RB_RStick);
-    if (btn(10) && btn(11)) this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
-    if (btn(10) && btn(12)) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
-    if (btn(10) && btn(13)) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
-    if (btn(10) && btn(14)) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
-    if (btn(9) && btn(10))  this->control.SetGamepad(Input::Gamepad::LB_RB);
+    // btn(1) 2-pole nav mode: drive the level-state bool directly so 1→0 disables, 0→1 enables.
+    this->control.navigation_mode = (btn_val(1) != 0);
+
+    // btn(2) drives FSM mode; in the Locomotion position, btn(3) selects which policy.
+    // Re-issued every tick — safe because SetGamepad is idempotent and CheckChange is level-triggered.
+    switch (btn_val(2))
+    {
+    case 0: this->control.SetGamepad(Input::Gamepad::B); break; // → GetDown
+    case 1: this->control.SetGamepad(Input::Gamepad::A); break; // → GetUp
+    case 2:
+        switch (btn_val(3))
+        {
+        case 0: this->control.SetGamepad(Input::Gamepad::A); break;            // no-policy fallback → GetUp
+        case 1: this->control.SetGamepad(Input::Gamepad::RB_DPadUp); break;    // → Dreamwaq
+        case 2: this->control.SetGamepad(Input::Gamepad::RB_DPadRight); break; // → DreamwaqSpeedy
+        }
+        break;
+    }
 
     auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
-    this->control.x = axis(1) * joystick_scale[1];   // LY
-    this->control.y = axis(0) * joystick_scale[0];   // LX
-    this->control.yaw = axis(2) * joystick_scale[2]; // RX
+    this->control.x = axis(2) * joystick_scale[1];   // LY
+    this->control.y = axis(3) * joystick_scale[0];   // LX
+    this->control.yaw = axis(0) * joystick_scale[2]; // RX
 }
 
 void RL_Real::CmdvelCallback(

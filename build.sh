@@ -143,6 +143,11 @@ run_ros_build() {
 
     print_header "[Running ROS Build]"
 
+    # Export TARGET_ROBOT so REP-149 condition= attributes in package.xml
+    # evaluate correctly. An empty value is fine (and required for full builds)
+    # — REP-149 treats unset/empty env vars as the empty string.
+    export TARGET_ROBOT="$robot"
+
     # Clean existing symlinks
     clean_existing_symlinks "${packages[@]}"
 
@@ -386,7 +391,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
-    echo -e "  -r, --robot NAME Build only the specified robot (a1|lite3|go2|g1|l4w4|d1|ril_go2)"
+    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -403,6 +408,7 @@ show_usage() {
     echo -e "  $0 -mj                # Build with CMake and MuJoCo simulator support"
     echo -e "  $0 -m -r go2          # Deploy build for Go2 only (CMake)"
     echo -e "  $0 -r g1              # Deploy build for G1 only (ROS)"
+    echo -e "  $0 -r sim             # Build only rl_sim (Gazebo) without any robot SDKs"
 }
 
 main() {
@@ -421,7 +427,7 @@ main() {
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
             -r|--robot)
                 if [ -z "$2" ]; then
-                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1)"
+                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim)"
                     exit 1
                 fi
                 robot="$2"; shift 2 ;;
@@ -437,10 +443,10 @@ main() {
     # Validate --robot value
     if [ -n "$robot" ]; then
         case "$robot" in
-            a1|lite3|go2|g1|l4w4|d1|ril_go2) ;;
+            a1|lite3|go2|g1|l4w4|d1|ril_go2|sim) ;;
             *)
-                print_error "Unknown robot: $robot"
-                print_info "Valid robots: a1, lite3, go2, g1, l4w4, d1, ril_go2"
+                print_error "Unknown target: $robot"
+                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, ril_go2, sim"
                 exit 1 ;;
         esac
     fi
@@ -460,6 +466,10 @@ main() {
 
     # Handle CMake build mode
     if [ "$cmake_mode" = true ]; then
+        if [ "$robot" = "sim" ]; then
+            print_error "-r sim is incompatible with --cmake (rl_sim requires Gazebo + ROS, use the ROS build path)"
+            exit 1
+        fi
         setup_inference_runtime
         run_cmake_build "$robot"
         exit 0

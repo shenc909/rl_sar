@@ -8,27 +8,31 @@
 
     <license>Apache-2.0</license>
 
+    <!--
+        Per-target dependency compartmentalization via REP-149 conditions.
+        TARGET_ROBOT is exported by build.sh before invoking catkin; an
+        unset/empty value (the bare `./build.sh` full build) hits the `== ''`
+        branch and includes everything. Per-target `./build.sh -r <target>`
+        only resolves the deps relevant to that executable's CMake block.
+    -->
+
     <buildtool_depend>catkin</buildtool_depend>
     <buildtool_depend>genmsg</buildtool_depend>
-    <build_depend>controller_manager</build_depend>
-    <build_depend>joint_state_controller</build_depend>
-    <build_depend>robot_state_publisher</build_depend>
-    <build_depend>roscpp</build_depend>
-    <build_depend>std_msgs</build_depend>
-    <build_export_depend>controller_manager</build_export_depend>
-    <build_export_depend>joint_state_controller</build_export_depend>
-    <build_export_depend>robot_state_publisher</build_export_depend>
-    <build_export_depend>roscpp</build_export_depend>
-    <build_export_depend>std_msgs</build_export_depend>
-    <exec_depend>controller_manager</exec_depend>
-    <exec_depend>joint_state_controller</exec_depend>
-    <exec_depend>robot_state_publisher</exec_depend>
-    <exec_depend>roscpp</exec_depend>
-    <exec_depend>std_msgs</exec_depend>
-    <build_depend>rospy</build_depend>
-    <exec_depend>rospy</exec_depend>
+
+    <!-- Universal: every executable links rl_sdk and ROS-side messaging. -->
+    <depend>roscpp</depend>
+    <depend>std_msgs</depend>
+    <depend>geometry_msgs</depend>
     <depend>robot_msgs</depend>
-    <depend>robot_joint_controller</depend>
+
+    <!-- rl_sim (Gazebo) — full build or `-r sim`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">controller_manager</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">joint_state_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_state_publisher</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_ros</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">tf</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_joint_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rospy</depend>
 
     <export>
 

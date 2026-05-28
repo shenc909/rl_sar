@@ -18,16 +18,15 @@
 
 #include <csignal>
 #include <mutex>
-#include <unordered_map>
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 
-#include "robot_msgs/msg/robot_command.hpp"
+#include "quickbot_interface/msg/motor_feedback.hpp"
+#include "quickbot_interface/msg/motor_setpoints.hpp"
 #include "robot_msgs/msg/fsm_state.hpp"
 #include "robot_msgs/srv/set_fsm_state.hpp"
 
@@ -35,14 +34,14 @@
 namespace plt = matplotlibcpp;
 
 // Generic "ROS interface layer" Go2 node: consumes only standard ROS2 topics
-// (sensor_msgs JointState / Imu / Joy) and publishes joint targets as the repo's
+// (sensor_msgs Imu / Joy) and publishes joint targets as the repo's
 // hardware-agnostic robot_msgs/RobotCommand. No Unitree SDK.
-#define TOPIC_JOINT_STATES "/joint_states"
+#define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
 #define TOPIC_IMU "/imu"
 #define TOPIC_JOY "/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
-#define TOPIC_JOINT_COMMAND "/robot_joint_controller/command"
+#define TOPIC_JOINT_COMMAND "/bridge_node/motor_setpoints"
 
 class RL_Real : public RL
 {
@@ -73,26 +72,22 @@ private:
     std::vector<std::vector<float>> plot_real_joint_pos, plot_target_joint_pos;
     void Plot();
 
-    // joint-command publisher (robot_msgs/RobotCommand, in policy joint order)
-    rclcpp::Publisher<robot_msgs::msg::RobotCommand>::SharedPtr robot_command_publisher;
-    robot_msgs::msg::RobotCommand robot_command_msg;
+    // joint-command publisher (quickbot_interface/MotorSetpoints, fixed-12 in bridge joint order)
+    rclcpp::Publisher<quickbot_interface::msg::MotorSetpoints>::SharedPtr motor_setpoints_publisher;
+    quickbot_interface::msg::MotorSetpoints motor_setpoints_msg;
 
     // standard sensor inputs
-    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscriber;
+    rclcpp::Subscription<quickbot_interface::msg::MotorFeedback>::SharedPtr motor_feedback_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber;
-    void JointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg);
+    void MotorFeedbackCallback(const quickbot_interface::msg::MotorFeedback::SharedPtr msg);
     void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
 
     sensor_msgs::msg::Imu imu_msg;
     sensor_msgs::msg::Joy joy_msg;
     std::mutex state_mutex;
-    // Latest joint feedback indexed by joint name (filled in JointStateCallback).
-    std::unordered_map<std::string, int> joint_name_to_index;
-    std::vector<float> latest_joint_pos;
-    std::vector<float> latest_joint_vel;
-    std::vector<float> latest_joint_eff;
+    quickbot_interface::msg::MotorFeedback latest_motor_feedback;
     bool joint_state_received = false;
 
     // others
