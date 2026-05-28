@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'low_state_to_joint_states = llc_utils.low_state_to_joint_states:main',
+            'accumulate_pointcloud = llc_utils.accumulate_pointcloud:main',
         ],
     },
 )
