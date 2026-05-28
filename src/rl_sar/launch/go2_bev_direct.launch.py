@@ -142,7 +142,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "lidar_yaw",
             description="L1 sensor yaw (rad) relative to radar link; default -45 deg",
-            default_value="-0.7853981633974483",
+            default_value="0.85",
         ),
         DeclareLaunchArgument(
             "lidar_pitch",
@@ -152,7 +152,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "lidar_roll",
             description="L1 sensor roll (rad) relative to radar link; default -15 deg",
-            default_value="-0.2617993877991494",
+            default_value="0.0",
         ),
         robot_state_publisher_node,
         low_state_to_joint_states_node,

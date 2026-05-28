@@ -54,6 +54,11 @@ class AccumulatePointCloud(Node):
 
         out = PointCloud2()
         out.header = latest.header
+        # Stamp with publish time, not the latest input cloud's stamp. self_filter
+        # does per-body TF lookups with a 100ms timeout at the cloud's stamp; if
+        # the stamp is older than the TF buffer's interpolation window the lookups
+        # all time out and processing drops to ~0.4 Hz (26 bodies × 100ms).
+        out.header.stamp = self.get_clock().now().to_msg()
         out.height = 1
         out.width = total_points
         out.fields = latest.fields
