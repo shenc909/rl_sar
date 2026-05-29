@@ -188,7 +188,7 @@ void RL_Real::GetState(RobotState<float> *state)
     state->imu.gyroscope[2] = this->imu_msg.angular_velocity.z;
 
     // Joint feedback: bridge publishes a fixed MotorCmd[12] in physical/SDK order
-    // (FR/FL/RR/RL × hip/thigh/calf). joint_mapping[i] gives the bridge index for
+    // (FR/FL/RL/RR × hip/thigh/calf). joint_mapping[i] gives the bridge index for
     // the i-th policy joint, so per-policy reorderings (e.g. dreamwaq's FL/FR/RL/RR)
     // are handled transparently.
     auto joint_mapping = this->params.Get<std::vector<int>>("joint_mapping");
