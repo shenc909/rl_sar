@@ -195,9 +195,9 @@ void RL_Real::GetState(RobotState<float> *state)
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
         const int bridge_idx = joint_mapping[i];
-        state->motor_state.q[i]       = this->latest_motor_feedback.data[bridge_idx].pos;
-        state->motor_state.dq[i]      = this->latest_motor_feedback.data[bridge_idx].vel;
-        state->motor_state.tau_est[i] = this->latest_motor_feedback.data[bridge_idx].torque;
+        state->motor_state.q[i]       = this->latest_motor_feedback.motors[bridge_idx].pos;
+        state->motor_state.dq[i]      = this->latest_motor_feedback.motors[bridge_idx].vel;
+        state->motor_state.tau_est[i] = this->latest_motor_feedback.motors[bridge_idx].torque;
     }
 }
 
@@ -206,7 +206,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
     auto joint_mapping = this->params.Get<std::vector<int>>("joint_mapping");
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
-        auto& m = this->motor_setpoints_msg.data[joint_mapping[i]];
+        auto& m = this->motor_setpoints_msg.motors[joint_mapping[i]];
         m.pos    = command->motor_command.q[i];
         m.vel    = command->motor_command.dq[i];
         m.torque = command->motor_command.tau[i];
@@ -214,6 +214,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
         m.kw     = command->motor_command.kd[i];
         m.mode   = 0;
     }
+    this->motor_setpoints_msg.header.stamp = ros2_node->now();
     this->motor_setpoints_publisher->publish(this->motor_setpoints_msg);
 }
 

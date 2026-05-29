@@ -33,9 +33,9 @@
 #include "matplotlibcpp.h"
 namespace plt = matplotlibcpp;
 
-// Generic "ROS interface layer" Go2 node: consumes only standard ROS2 topics
-// (sensor_msgs Imu / Joy) and publishes joint targets as the repo's
-// hardware-agnostic robot_msgs/RobotCommand. No Unitree SDK.
+// Generic "ROS interface layer" Go2 node: consumes standard ROS2 topics
+// (sensor_msgs Imu / Joy) plus quickbot_interface/MotorFeedback, and publishes
+// joint targets as quickbot_interface/MotorSetpoints. No Unitree SDK.
 #define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
 #define TOPIC_IMU "/imu"
 #define TOPIC_JOY "/joy"
