@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 go2/dreamwaq_bev_direct:
-  model_name: "dreamwaq_bev_direct.pt"
+  model_name: "dreamwaq_bev_direct_30k.pt"
   transition_duration: 2.0
   num_observations: 45
   num_height_scan_points: 374          # 2-channel BEV grid: 2 * (17 * 11) = 374
