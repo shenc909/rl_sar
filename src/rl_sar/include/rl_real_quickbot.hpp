@@ -37,7 +37,7 @@ namespace plt = matplotlibcpp;
 // (sensor_msgs Imu / Joy) plus quickbot_interface/MotorFeedback, and publishes
 // joint targets as quickbot_interface/MotorSetpoints. No Unitree SDK.
 #define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
-#define TOPIC_IMU "/imu"
+#define TOPIC_IMU "/imu/data"
 #define TOPIC_JOY "/bridge_node/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
