@@ -4,7 +4,7 @@
  * Modified by Shen Chen for Go2 control via standard ROS2 topics
  */
 
-#include "rl_real_ril_go2.hpp"
+#include "rl_real_quickbot.hpp"
 
 #include <atomic>
 #include <csignal>
@@ -18,14 +18,14 @@ void SigintHandler(int) {
 }  // namespace
 
 RL_Real::RL_Real(int argc, char **argv)
-    : ros2_node(std::make_shared<rclcpp::Node>("rl_real_ril_go2_node"))
+    : ros2_node(std::make_shared<rclcpp::Node>("rl_real_quickbot_node"))
 {
     (void)argc;
     (void)argv;
 
     // read params from yaml
     this->ang_vel_axis = "body";
-    this->robot_name = "ril_go2";
+    this->robot_name = "quickbot";
     this->ReadYaml(this->robot_name, "base.yaml");
 
     // auto load FSM by robot_name

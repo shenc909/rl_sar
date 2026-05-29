@@ -20,9 +20,9 @@ endif()
 # D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available on Ubuntu 20.04 /
 # Jetson; gazebo not present on robot deploy machines). Empty = full build.
 # Use "sim" to build only rl_sim (Gazebo) without any robot SDKs.
-set(TARGET_ROBOT "" CACHE STRING "Build only the specified target executable (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim). Empty = build all.")
+set(TARGET_ROBOT "" CACHE STRING "Build only the specified target executable (a1|lite3|go2|g1|l4w4|d1|quickbot|sim). Empty = build all.")
 if(TARGET_ROBOT)
-    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 ril_go2 sim)
+    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 quickbot sim)
     if(NOT TARGET_ROBOT IN_LIST _valid_robots)
         message(FATAL_ERROR "TARGET_ROBOT='${TARGET_ROBOT}' is invalid. Valid: ${_valid_robots}")
     endif()
@@ -66,7 +66,7 @@ add_definitions(-DBOOST_BIND_GLOBAL_PLACEHOLDERS)
 
 # Universal ROS deps (every executable needs these). Target- and
 # simulator-specific finds are scoped to their own per-target blocks further
-# down so e.g. `./build.sh -r ril_go2` doesn't require gazebo to be installed.
+# down so e.g. `./build.sh -r quickbot` doesn't require gazebo to be installed.
 if(NOT USE_CMAKE)
     if($ENV{ROS_DISTRO} MATCHES "noetic")
         # Build the catkin components list incrementally so sim-only and
@@ -285,7 +285,7 @@ endif()
 # Robot SDK imports (unitree_legged_sdk, unitree_sdk2, l4w4_sdk, lite3_motionsdk,
 # agibot_d1_sdk, retroid gamepad) and the per-robot ROS find_package calls now
 # live inside their consuming target block further down. This keeps e.g.
-# `./build.sh -r ril_go2` from compiling unitree_sdk2 or pulling in gazebo.
+# `./build.sh -r quickbot` from compiling unitree_sdk2 or pulling in gazebo.
 #
 # Note for the catkin (noetic) path: include_directories(${catkin_INCLUDE_DIRS})
 # was already issued by the universal find_package block above.
@@ -546,19 +546,19 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
     install(TARGETS rl_real_go2_ros2 DESTINATION lib/${PROJECT_NAME})
 endif()
 
-# executable for rl real ril go2 (pure ROS2, no unitree SDKs)
+# executable for rl real quickbot (pure ROS2, no unitree SDKs)
 if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
-   AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "ril_go2"))
+   AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "quickbot"))
     find_package(sensor_msgs REQUIRED)
     find_package(quickbot_interface REQUIRED)
 
-    add_executable(rl_real_ril_go2 src/rl_real_ril_go2.cpp)
-    target_link_libraries(rl_real_ril_go2
+    add_executable(rl_real_quickbot src/rl_real_quickbot.cpp)
+    target_link_libraries(rl_real_quickbot
         rl_sdk
         observation_buffer
             ${YAML_CPP_LIBRARIES}
     )
-    ament_target_dependencies(rl_real_ril_go2
+    ament_target_dependencies(rl_real_quickbot
         rclcpp
         geometry_msgs
         sensor_msgs
@@ -566,7 +566,7 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         robot_msgs
         quickbot_interface
     )
-    install(TARGETS rl_real_ril_go2 DESTINATION lib/${PROJECT_NAME})
+    install(TARGETS rl_real_quickbot DESTINATION lib/${PROJECT_NAME})
 endif()
 
 # executable for rl real g1

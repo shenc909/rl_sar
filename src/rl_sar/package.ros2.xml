@@ -36,16 +36,16 @@
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rclpy</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rospy</depend>
 
-    <!-- sensor_msgs is needed by rl_real_go2_ros2 and rl_real_ril_go2. -->
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2' or $TARGET_ROBOT == 'ril_go2'">sensor_msgs</depend>
+    <!-- sensor_msgs is needed by rl_real_go2_ros2 and rl_real_quickbot. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2' or $TARGET_ROBOT == 'quickbot'">sensor_msgs</depend>
 
     <!-- rl_real_go2_ros2 (Unitree's ROS2 msg packages) — full build or `-r go2`. -->
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_go</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_hg</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2'">unitree_api</depend>
 
-    <!-- rl_real_ril_go2 (unitree-free Go2) — full build or `-r ril_go2`. -->
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'ril_go2'">quickbot_interface</depend>
+    <!-- rl_real_quickbot (unitree-free Go2) — full build or `-r quickbot`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'quickbot'">quickbot_interface</depend>
 
     <export>
         <build_type>ament_cmake</build_type>

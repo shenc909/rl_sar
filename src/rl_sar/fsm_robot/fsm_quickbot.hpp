@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef RIL_GO2_FSM_HPP
-#define RIL_GO2_FSM_HPP
+#ifndef QUICKBOT_FSM_HPP
+#define QUICKBOT_FSM_HPP
 
 #include "fsm.hpp"
 #include "rl_sdk.hpp"
 #include "fsm_locomotion_common.hpp"
 
-namespace ril_go2_fsm
+namespace quickbot_fsm
 {
 
 class RLFSMStatePassive : public RLFSMState
@@ -237,28 +237,28 @@ public:
     }
 };
 
-} // namespace ril_go2_fsm
+} // namespace quickbot_fsm
 
-class RILGo2FSMFactory : public FSMFactory
+class QuickbotFSMFactory : public FSMFactory
 {
 public:
-    RILGo2FSMFactory(const std::string& initial) : initial_state_(initial) {}
+    QuickbotFSMFactory(const std::string& initial) : initial_state_(initial) {}
     std::shared_ptr<FSMState> CreateState(void *context, const std::string &state_name) override
     {
         RL *rl = static_cast<RL *>(context);
         if (state_name == "RLFSMStatePassive")
-            return std::make_shared<ril_go2_fsm::RLFSMStatePassive>(rl);
+            return std::make_shared<quickbot_fsm::RLFSMStatePassive>(rl);
         else if (state_name == "RLFSMStateGetUp")
-            return std::make_shared<ril_go2_fsm::RLFSMStateGetUp>(rl);
+            return std::make_shared<quickbot_fsm::RLFSMStateGetUp>(rl);
         else if (state_name == "RLFSMStateGetDown")
-            return std::make_shared<ril_go2_fsm::RLFSMStateGetDown>(rl);
+            return std::make_shared<quickbot_fsm::RLFSMStateGetDown>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_Dreamwaq")
-            return std::make_shared<ril_go2_fsm::RLFSMStateRLLocomotion_Dreamwaq>(rl);
+            return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_Dreamwaq>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
-            return std::make_shared<ril_go2_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedy>(rl);
+            return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedy>(rl);
         return nullptr;
     }
-    std::string GetType() const override { return "ril_go2"; }
+    std::string GetType() const override { return "quickbot"; }
     std::vector<std::string> GetSupportedStates() const override
     {
         return {
@@ -274,6 +274,6 @@ private:
     std::string initial_state_;
 };
 
-REGISTER_FSM_FACTORY(RILGo2FSMFactory, "RLFSMStatePassive")
+REGISTER_FSM_FACTORY(QuickbotFSMFactory, "RLFSMStatePassive")
 
-#endif // RIL_GO2_FSM_HPP
+#endif // QUICKBOT_FSM_HPP

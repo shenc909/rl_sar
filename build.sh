@@ -391,7 +391,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
-    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim)"
+    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -427,7 +427,7 @@ main() {
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
             -r|--robot)
                 if [ -z "$2" ]; then
-                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|ril_go2|sim)"
+                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
                     exit 1
                 fi
                 robot="$2"; shift 2 ;;
@@ -443,10 +443,10 @@ main() {
     # Validate --robot value
     if [ -n "$robot" ]; then
         case "$robot" in
-            a1|lite3|go2|g1|l4w4|d1|ril_go2|sim) ;;
+            a1|lite3|go2|g1|l4w4|d1|quickbot|sim) ;;
             *)
                 print_error "Unknown target: $robot"
-                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, ril_go2, sim"
+                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, quickbot, sim"
                 exit 1 ;;
         esac
     fi

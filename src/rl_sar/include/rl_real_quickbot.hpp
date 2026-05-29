@@ -4,8 +4,8 @@
  * Modified by Shen Chen for Go2 control via standard ROS2 topics
  */
 
-#ifndef RL_REAL_RIL_GO2_HPP
-#define RL_REAL_RIL_GO2_HPP
+#ifndef RL_REAL_QUICKBOT_HPP
+#define RL_REAL_QUICKBOT_HPP
 
 // #define PLOT
 // #define CSV_LOGGER
@@ -14,7 +14,7 @@
 #include "observation_buffer.hpp"
 #include "inference_runtime.hpp"
 #include "loop.hpp"
-#include "fsm_ril_go2.hpp"
+#include "fsm_quickbot.hpp"
 
 #include <csignal>
 #include <mutex>
@@ -107,4 +107,4 @@ private:
     rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
 };
 
-#endif // RL_REAL_RIL_GO2_HPP
+#endif // RL_REAL_QUICKBOT_HPP
