@@ -386,14 +386,14 @@ void RL_Real::JoyCallback(
     // Re-issued every tick — safe because SetGamepad is idempotent and CheckChange is level-triggered.
     switch (btn_val(2))
     {
-    case 0: this->control.SetGamepad(Input::Gamepad::B); break; // → GetDown
-    case 1: this->control.SetGamepad(Input::Gamepad::A); break; // → GetUp
-    case 2:
+    case -1: this->control.SetGamepad(Input::Gamepad::B); break; // → GetDown
+    case  0: this->control.SetGamepad(Input::Gamepad::A); break; // → GetUp
+    case  1:
         switch (btn_val(3))
         {
-        case 0: this->control.SetGamepad(Input::Gamepad::A); break;            // no-policy fallback → GetUp
-        case 1: this->control.SetGamepad(Input::Gamepad::RB_DPadUp); break;    // → Dreamwaq
-        case 2: this->control.SetGamepad(Input::Gamepad::RB_DPadRight); break; // → DreamwaqSpeedy
+        case -1: this->control.SetGamepad(Input::Gamepad::A); break;            // no-policy fallback → GetUp
+        case  0: this->control.SetGamepad(Input::Gamepad::RB_DPadUp); break;    // → Dreamwaq
+        case  1: this->control.SetGamepad(Input::Gamepad::RB_DPadRight); break; // → DreamwaqSpeedy
         }
         break;
     }

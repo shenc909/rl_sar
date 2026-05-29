@@ -38,7 +38,7 @@ namespace plt = matplotlibcpp;
 // joint targets as quickbot_interface/MotorSetpoints. No Unitree SDK.
 #define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
 #define TOPIC_IMU "/imu"
-#define TOPIC_JOY "/joy"
+#define TOPIC_JOY "/bridge_node/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
 #define TOPIC_JOINT_COMMAND "/bridge_node/motor_setpoints"
