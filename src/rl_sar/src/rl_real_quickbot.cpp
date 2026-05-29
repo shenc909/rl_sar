@@ -212,7 +212,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
         m.torque = command->motor_command.tau[i];
         m.kp     = command->motor_command.kp[i];
         m.kw     = command->motor_command.kd[i];
-        m.mode   = 0;
+        m.mode   = 1;
     }
     this->motor_setpoints_msg.header.stamp = ros2_node->now();
     this->motor_setpoints_publisher->publish(this->motor_setpoints_msg);
