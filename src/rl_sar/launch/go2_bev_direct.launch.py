@@ -1,11 +1,11 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
 #
-# Real-robot perception pipeline for the Go2 dreamwaq_bev_direct policy. Stacks
-# an accumulator in front of robot_self_filter so the BEV rasterizer sees a
-# denser cloud than a single L1 sweep provides:
+# Real-robot perception pipeline for the Go2 dreamwaq_bev_direct policy. Decimates
+# the raw L1 cloud (drops every other point) in front of robot_self_filter to
+# lighten the load on downstream consumers:
 #
-#   real L1 cloud (cloud_in) -> accumulate_pointcloud -> /utlidar/cloud_accumulated
+#   real L1 cloud (cloud_in) -> decimate_pointcloud  -> /utlidar/cloud_decimated
 #                            -> robot_self_filter     -> /lidar/points_filtered
 #                            -> rl_real_go2_ros2
 #
@@ -24,8 +24,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     cloud_in = LaunchConfiguration("cloud_in")
-    accumulated_topic = LaunchConfiguration("accumulated_topic")
-    publish_rate_hz = LaunchConfiguration("publish_rate_hz")
+    decimated_topic = LaunchConfiguration("decimated_topic")
     lidar_frame = LaunchConfiguration("lidar_frame")
     lidar_parent_frame = LaunchConfiguration("lidar_parent_frame")
     lidar_yaw = LaunchConfiguration("lidar_yaw")
@@ -78,21 +77,23 @@ def generate_launch_description():
         ],
     )
 
-    # target_frame defaults to lidar_parent_frame ("radar"): the accumulator
-    # looks up the static utlidar_lidar->radar TF (published by the static_tf
-    # node above) and republishes the cloud in the radar frame. Downstream
-    # (self_filter, BEV rasterizer) then sees a cloud already in the URDF L1
-    # mount frame, matching the Gazebo sim and bev_lidar_mount_* config.
-    accumulate_pointcloud_node = Node(
+    # Keeps every other point of the raw L1 cloud and republishes it for
+    # self_filter. target_frame=lidar_parent_frame ("radar") makes it look up the
+    # static utlidar_lidar->radar TF (from the static_tf node above) and
+    # re-express the decimated cloud in the radar frame, so downstream (self_filter,
+    # BEV rasterizer) sees a cloud in the URDF L1 mount frame, matching the Gazebo
+    # sim and bev_lidar_mount_* config. restamp stamps the output with publish time
+    # so self_filter's per-body TF lookups don't time out on a stale input stamp.
+    decimate_pointcloud_node = Node(
         package="llc_utils",
-        executable="accumulate_pointcloud",
-        name="accumulate_pointcloud",
+        executable="decimate_pointcloud",
+        name="decimate_pointcloud",
         output="screen",
         parameters=[{
             "input_topic": cloud_in,
-            "output_topic": accumulated_topic,
-            "publish_rate_hz": publish_rate_hz,
+            "output_topic": decimated_topic,
             "target_frame": lidar_parent_frame,
+            "restamp": True,
         }],
     )
 
@@ -114,7 +115,7 @@ def generate_launch_description():
             },
         ],
         remappings=[
-            ("/cloud_in", accumulated_topic),
+            ("/cloud_in", decimated_topic),
             ("/cloud_out", "/lidar/points_filtered"),
         ],
     )
@@ -126,14 +127,9 @@ def generate_launch_description():
             default_value="/utlidar/cloud",
         ),
         DeclareLaunchArgument(
-            "accumulated_topic",
-            description="Topic carrying the accumulator output (fed into self_filter)",
-            default_value="/utlidar/cloud_accumulated",
-        ),
-        DeclareLaunchArgument(
-            "publish_rate_hz",
-            description="Accumulator republish rate; buffer is flushed each tick",
-            default_value="10.0",
+            "decimated_topic",
+            description="Topic carrying the decimator output (fed into self_filter)",
+            default_value="/utlidar/cloud_decimated",
         ),
         DeclareLaunchArgument(
             "lidar_frame",
@@ -148,7 +144,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "lidar_yaw",
             description="L1 sensor yaw (rad) relative to radar link; default -45 deg",
-            default_value="0.85",
+            default_value="0.0",
         ),
         DeclareLaunchArgument(
             "lidar_pitch",
@@ -163,6 +159,6 @@ def generate_launch_description():
         robot_state_publisher_node,
         low_state_to_joint_states_node,
         utlidar_static_tf_node,
-        accumulate_pointcloud_node,
+        decimate_pointcloud_node,
         self_filter_node,
     ])
