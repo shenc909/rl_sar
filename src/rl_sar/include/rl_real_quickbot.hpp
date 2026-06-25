@@ -89,6 +89,15 @@ private:
     // Startup safety interlock: stays false (controller inputs ignored, FSM held
     // in Passive) until the controller is first seen in the neutral start state.
     bool joy_armed = false;
+
+    // joystick_scale lives in per-policy config.yaml. JoyCallback runs on the ROS
+    // executor thread, while config switches rebuild params.config_node on the
+    // loop_control thread; YAML::Node is not thread-safe, so reading the node
+    // from JoyCallback races the rebuild (manifests as "joystick_scale
+    // nonexistent"). Cache it instead and refresh on every config change.
+    std::mutex joystick_scale_mutex;
+    std::vector<float> joystick_scale_cache{1.0f, 1.0f, 1.0f, 1.0f};
+    void RefreshJoystickScale();
     std::mutex state_mutex;
     quickbot_interface::msg::MotorFeedback latest_motor_feedback;
     bool joint_state_received = false;

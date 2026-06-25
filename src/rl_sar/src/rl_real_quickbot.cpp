@@ -27,6 +27,7 @@ RL_Real::RL_Real(int argc, char **argv)
     this->ang_vel_axis = "body";
     this->robot_name = "quickbot";
     this->ReadYaml(this->robot_name, "base.yaml");
+    this->RefreshJoystickScale();
 
     // auto load FSM by robot_name
     if (FSMManager::GetInstance().IsTypeSupported(this->robot_name))
@@ -165,8 +166,20 @@ RL_Real::~RL_Real()
     std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
 }
 
+void RL_Real::RefreshJoystickScale()
+{
+    auto scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    if (scale.size() < 4) scale.resize(4, 1.0f);
+    std::lock_guard<std::mutex> lock(this->joystick_scale_mutex);
+    this->joystick_scale_cache = std::move(scale);
+}
+
 void RL_Real::OnConfigSwitched()
 {
+    // Runs at the tail of SwitchToConfig under output_mutex, with the new
+    // policy's config.yaml already merged into params — safe to snapshot here.
+    this->RefreshJoystickScale();
+
     const float rl_period = this->params.Get<float>("dt") * this->params.Get<int>("decimation");
     if (this->loop_rl) this->loop_rl->SetPeriod(rl_period);
     // Intentionally not retuning loop_control — see NOTES.md for why dt should
@@ -418,7 +431,13 @@ void RL_Real::JoyCallback(
         break;
     }
 
-    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    // Read the cached scale (refreshed on config switch) rather than the YAML
+    // params node, which the config-switch thread may be rebuilding.
+    std::vector<float> joystick_scale;
+    {
+        std::lock_guard<std::mutex> lock(this->joystick_scale_mutex);
+        joystick_scale = this->joystick_scale_cache;
+    }
     this->control.x = axis(2) * joystick_scale[1];   // LY
     this->control.y = -axis(3) * joystick_scale[0];   // LX
     this->control.yaw = -axis(0) * joystick_scale[2]; // RX
