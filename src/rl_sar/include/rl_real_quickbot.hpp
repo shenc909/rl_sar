@@ -89,6 +89,9 @@ private:
     // Startup safety interlock: stays false (controller inputs ignored, FSM held
     // in Passive) until the controller is first seen in the neutral start state.
     bool joy_armed = false;
+    // Tracks the previous estop (buttons[0]) level so engagement is logged once
+    // on the rising edge while still being enforced every tick.
+    bool estop_engaged_prev = false;
 
     // joystick_scale lives in per-policy config.yaml. JoyCallback runs on the ROS
     // executor thread, while config switches rebuild params.config_node on the

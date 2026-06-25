@@ -392,6 +392,27 @@ void RL_Real::JoyCallback(
     auto btn_val = [&](size_t i) { return i < this->joy_msg.buttons.size() ? this->joy_msg.buttons[i] : 0; };
     auto axis    = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
 
+    // E-stop on buttons[0] (same 2-pole convention as nav: nonzero == engaged).
+    // When engaged, drive the FSM back to Passive and disarm so the operator
+    // must re-establish the neutral start state to resume. Enforced every tick
+    // (RequestStateChange no-ops once already Passive); logged once on the edge.
+    const bool estop_engaged = (btn_val(0) != 0);
+    if (estop_engaged)
+    {
+        if (!this->estop_engaged_prev)
+        {
+            RCLCPP_WARN(ros2_node->get_logger(),
+                "E-stop engaged: forcing Passive and disarming; controller must be "
+                "re-armed (neutral start state) once e-stop clears.");
+        }
+        this->estop_engaged_prev = true;
+        this->joy_armed = false;
+        this->control.navigation_mode = false;
+        this->fsm.RequestStateChange("RLFSMStatePassive");
+        return;
+    }
+    this->estop_engaged_prev = false;
+
     // Startup safety interlock: ignore all controller commands (holding the FSM
     // in Passive) until the controller is first observed in the neutral/safe
     // start state — nav mode off, fsm switch at GetDown, policy selector at none.
