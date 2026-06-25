@@ -109,6 +109,30 @@ run_mujoco_build() {
     print_success "MuJoCo build completed!"
 }
 
+# Map a `-r <target>` to the leaf packages whose dependency subtree should be
+# built. rl_sar's REP-149 conditional deps (keyed off the exported TARGET_ROBOT)
+# prune the message/SDK packages of other robots, so building "up to" these
+# leaves pulls in only the dependencies specific to the target — not the whole
+# workspace. Robot descriptions are independent leaf packages (nothing depends
+# on them), so the relevant one is named explicitly.
+target_robot_packages() {
+    local target="$1"
+    if [ "$target" = "gazebo" ]; then
+        # The Gazebo sim can load any robot, so include every *_description.
+        local descriptions
+        descriptions=$(find src -type d -name '*_description' -printf '%f\n' | sort -u | tr '\n' ' ')
+        echo "rl_sar ${descriptions}"
+    else
+        local desc_dir
+        desc_dir=$(find src -type d -name "${target}_description" | head -n1)
+        if [ -n "$desc_dir" ]; then
+            echo "rl_sar ${target}_description"
+        else
+            echo "rl_sar"
+        fi
+    fi
+}
+
 run_ros_build() {
     local debug="$1"
     local full_debug="$2"
@@ -137,7 +161,9 @@ run_ros_build() {
     # other robots' executables (they are gated on TARGET_ROBOT STREQUAL "").
     colcon_extra_args+=("-DTARGET_ROBOT=$robot")
     catkin_extra_args+=("-DTARGET_ROBOT=$robot")
-    if [ -n "$robot" ]; then
+    if [ "$robot" = "gazebo" ]; then
+        print_info "Target: gazebo (only rl_sim and robot descriptions will be built)"
+    elif [ -n "$robot" ]; then
         print_info "Target robot: $robot (only rl_real_$robot will be built)"
     fi
 
@@ -161,20 +187,18 @@ run_ros_build() {
         create_symlinks_for_specific_packages "${packages[@]}"
     fi
 
+    # For a per-robot build (`-r <target>` with no explicit package list),
+    # restrict the build to that target's dependency subtree instead of the
+    # whole workspace. Symlinks were created for every package above so colcon
+    # can still resolve the subtree's dependencies.
+    local up_to_pkgs=()
+    if [ ${#packages[@]} -eq 0 ] && [ -n "$robot" ]; then
+        read -r -a up_to_pkgs <<< "$(target_robot_packages "$robot")"
+    fi
+
     # Execute build
-    if [ ${#packages[@]} -eq 0 ]; then
-        if [[ "$ROS_DISTRO" == "noetic" ]]; then
-            print_header "[Using catkin build]"
-            print_info "Building all packages..."
-            print_info "Build type: $build_type"
-            catkin build "${catkin_extra_args[@]}"
-        else
-            print_header "[Using colcon build]"
-            print_info "Building all packages..."
-            print_info "Build type: $build_type"
-            colcon build --merge-install --symlink-install "${colcon_extra_args[@]}"
-        fi
-    else
+    if [ ${#packages[@]} -gt 0 ]; then
+        # Explicit user-specified package list
         if [[ "$ROS_DISTRO" == "noetic" ]]; then
             print_header "[Using catkin build]"
             print_info "Building specific packages: $package_list"
@@ -185,6 +209,32 @@ run_ros_build() {
             print_info "Building specific packages: $package_list"
             print_info "Build type: $build_type"
             colcon build --merge-install --symlink-install --packages-select $package_list "${colcon_extra_args[@]}"
+        fi
+    elif [ ${#up_to_pkgs[@]} -gt 0 ]; then
+        # Per-robot subtree build (only this target's dependencies)
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building ${robot} subtree: ${up_to_pkgs[*]}"
+            print_info "Build type: $build_type"
+            catkin build "${up_to_pkgs[@]}" "${catkin_extra_args[@]}"
+        else
+            print_header "[Using colcon build]"
+            print_info "Building ${robot} subtree: ${up_to_pkgs[*]}"
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install --packages-up-to "${up_to_pkgs[@]}" "${colcon_extra_args[@]}"
+        fi
+    else
+        # Full workspace build
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building all packages..."
+            print_info "Build type: $build_type"
+            catkin build "${catkin_extra_args[@]}"
+        else
+            print_header "[Using colcon build]"
+            print_info "Building all packages..."
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install "${colcon_extra_args[@]}"
         fi
     fi
 

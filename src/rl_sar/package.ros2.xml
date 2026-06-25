@@ -25,16 +25,16 @@
     <depend>robot_msgs</depend>
     <depend>yaml-cpp</depend>
 
-    <!-- rl_sim (Gazebo) — full build or `-r sim`. -->
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_ros</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_msgs</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">controller_manager</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">joint_state_controller</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_state_publisher</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_joint_controller</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">std_srvs</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rclpy</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rospy</depend>
+    <!-- rl_sim (Gazebo) — full build or `-r gazebo`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">gazebo_ros</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">gazebo_msgs</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">controller_manager</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">joint_state_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_state_publisher</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_joint_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">std_srvs</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">rclpy</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">rospy</depend>
 
     <!-- sensor_msgs is needed by rl_real_go2_ros2 and rl_real_quickbot. -->
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2' or $TARGET_ROBOT == 'quickbot'">sensor_msgs</depend>
