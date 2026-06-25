@@ -36,12 +36,12 @@ namespace plt = matplotlibcpp;
 // Generic "ROS interface layer" Go2 node: consumes standard ROS2 topics
 // (sensor_msgs Imu / Joy) plus quickbot_interface/MotorFeedback, and publishes
 // joint targets as quickbot_interface/MotorSetpoints. No Unitree SDK.
-#define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
-#define TOPIC_IMU "/imu/data"
-#define TOPIC_JOY "/bridge_node/joy"
+#define TOPIC_JOINT_STATES "/interface/motor_feedback"
+#define TOPIC_IMU "/xsens/imu/data"
+#define TOPIC_JOY "/interface/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
-#define TOPIC_JOINT_COMMAND "/bridge_node/motor_setpoints"
+#define TOPIC_JOINT_COMMAND "/interface/motor_setpoints"
 
 class RL_Real : public RL
 {
