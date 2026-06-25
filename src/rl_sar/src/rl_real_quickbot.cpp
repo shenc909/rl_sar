@@ -400,8 +400,8 @@ void RL_Real::JoyCallback(
 
     auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
     this->control.x = axis(2) * joystick_scale[1];   // LY
-    this->control.y = axis(3) * joystick_scale[0];   // LX
-    this->control.yaw = axis(0) * joystick_scale[2]; // RX
+    this->control.y = -axis(3) * joystick_scale[0];   // LX
+    this->control.yaw = -axis(0) * joystick_scale[2]; // RX
 }
 
 void RL_Real::CmdvelCallback(
