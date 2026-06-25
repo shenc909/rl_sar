@@ -59,7 +59,7 @@ def generate_launch_description():
         arguments=[
             "-topic", "/robot_description",
             "-entity", "robot_model",
-            "-z", "1.0",
+            "-z", LaunchConfiguration("spawn_z"),
         ],
         output="screen",
     )
@@ -152,6 +152,11 @@ def generate_launch_description():
             "gui",
             description="Launch the Gazebo client GUI (set false if gzclient hangs with a joystick attached)",
             default_value="true",
+        ),
+        DeclareLaunchArgument(
+            "spawn_z",
+            description="Spawn height; with the default pose seeded, keep it just above stance height",
+            default_value="0.5",
         ),
         DeclareLaunchArgument(
             "use_joy",

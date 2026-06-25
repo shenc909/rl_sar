@@ -57,7 +57,10 @@ public:
     {
         percent_getup = 0.0f;
         rl.now_state = *fsm_state;
-        rl.start_state = rl.now_state;
+        if (rl.fsm.previous_state_->GetStateName() == "RLFSMStatePassive")
+        {
+            rl.start_state = rl.now_state;
+        }
     }
 
     void Run() override

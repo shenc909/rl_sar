@@ -74,7 +74,10 @@ public:
             stand_from_passive = false;
         }
         rl.now_state = *fsm_state;
-        rl.start_state = rl.now_state;
+        if (stand_from_passive)
+        {
+            rl.start_state = rl.now_state;
+        }
     }
 
     void Run() override
