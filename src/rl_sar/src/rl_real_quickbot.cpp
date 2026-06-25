@@ -379,6 +379,26 @@ void RL_Real::JoyCallback(
     auto btn_val = [&](size_t i) { return i < this->joy_msg.buttons.size() ? this->joy_msg.buttons[i] : 0; };
     auto axis    = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
 
+    // Startup safety interlock: ignore all controller commands (holding the FSM
+    // in Passive) until the controller is first observed in the neutral/safe
+    // start state — nav mode off, fsm switch at GetDown, policy selector at none.
+    // This prevents the robot from leaving Passive if the program starts with a
+    // switch left in an active position. Latched once, it stays armed for the
+    // remainder of the session.
+    if (!this->joy_armed)
+    {
+        const bool safe_start = (btn_val(1) == 0) && (btn_val(2) == -1) && (btn_val(3) == -1);
+        if (!safe_start)
+        {
+            RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 2000,
+                "Controller not in neutral start state (nav off, fsm GetDown, policy none); "
+                "ignoring inputs and holding Passive.");
+            return;
+        }
+        this->joy_armed = true;
+        RCLCPP_INFO(ros2_node->get_logger(), "Controller armed: neutral start state observed.");
+    }
+
     // btn(1) 2-pole nav mode: drive the level-state bool directly so 1→0 disables, 0→1 enables.
     this->control.navigation_mode = (btn_val(1) != 0);
 

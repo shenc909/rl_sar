@@ -86,6 +86,9 @@ private:
 
     sensor_msgs::msg::Imu imu_msg;
     sensor_msgs::msg::Joy joy_msg;
+    // Startup safety interlock: stays false (controller inputs ignored, FSM held
+    // in Passive) until the controller is first seen in the neutral start state.
+    bool joy_armed = false;
     std::mutex state_mutex;
     quickbot_interface::msg::MotorFeedback latest_motor_feedback;
     bool joint_state_received = false;
