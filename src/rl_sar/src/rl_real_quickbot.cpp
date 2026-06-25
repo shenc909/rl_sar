@@ -396,7 +396,7 @@ void RL_Real::JoyCallback(
     // When engaged, drive the FSM back to Passive and disarm so the operator
     // must re-establish the neutral start state to resume. Enforced every tick
     // (RequestStateChange no-ops once already Passive); logged once on the edge.
-    const bool estop_engaged = (btn_val(0) != 0);
+    const bool estop_engaged = (btn_val(0) == 0);
     if (estop_engaged)
     {
         if (!this->estop_engaged_prev)
