@@ -19,15 +19,15 @@ endif()
 # Avoids pulling incompatible vendor SDKs and gazebo into the build (e.g. agibot
 # D1 SDK requires glibc 2.34 / cxxabi 1.3.13 — not available on Ubuntu 20.04 /
 # Jetson; gazebo not present on robot deploy machines). Empty = full build.
-# Use "sim" to build only rl_sim (Gazebo) without any robot SDKs.
-set(TARGET_ROBOT "" CACHE STRING "Build only the specified target executable (a1|lite3|go2|g1|l4w4|d1|quickbot|sim). Empty = build all.")
+# Use "gazebo" to build only rl_sim (Gazebo) without any robot SDKs.
+set(TARGET_ROBOT "" CACHE STRING "Build only the specified target executable (a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo). Empty = build all.")
 if(TARGET_ROBOT)
-    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 quickbot sim)
+    set(_valid_robots a1 lite3 go2 g1 l4w4 d1 quickbot gazebo)
     if(NOT TARGET_ROBOT IN_LIST _valid_robots)
         message(FATAL_ERROR "TARGET_ROBOT='${TARGET_ROBOT}' is invalid. Valid: ${_valid_robots}")
     endif()
-    if(TARGET_ROBOT STREQUAL "sim")
-        message(STATUS "TARGET_ROBOT=sim (only rl_sim will be built)")
+    if(TARGET_ROBOT STREQUAL "gazebo")
+        message(STATUS "TARGET_ROBOT=gazebo (only rl_sim will be built)")
     else()
         message(STATUS "TARGET_ROBOT=${TARGET_ROBOT} (only rl_real_${TARGET_ROBOT} will be built)")
     endif()
@@ -75,7 +75,7 @@ if(NOT USE_CMAKE)
         # so we collect all needed components here and issue one call.
         set(_catkin_components roscpp std_msgs geometry_msgs robot_msgs)
         set(_catkin_pkg_deps "")
-        if(TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim")
+        if(TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "gazebo")
             list(APPEND _catkin_components
                 controller_manager genmsg joint_state_controller
                 robot_state_publisher gazebo_ros tf rospy robot_joint_controller)
@@ -358,9 +358,9 @@ if(NOT USE_CMAKE)
 endif()
 
 # executable for rl sim (Gazebo). Built for full builds (TARGET_ROBOT="") or
-# the dedicated "-r sim" build. All gazebo/ros_control/rclpy finds are scoped
+# the dedicated "-r gazebo" build. All gazebo/ros_control/rclpy finds are scoped
 # to this block so robot-deploy builds don't require them to be installed.
-if(NOT USE_CMAKE AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim"))
+if(NOT USE_CMAKE AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "gazebo"))
     if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
         find_package(joint_state_broadcaster REQUIRED)
         find_package(robot_state_publisher REQUIRED)
@@ -690,7 +690,7 @@ endif()
 # ========================
 # mujoco
 # ========================
-if(USE_MUJOCO AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "sim"))
+if(USE_MUJOCO AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "gazebo"))
     add_compile_definitions(USE_MUJOCO)
     set(MUJOCO_DIR "${PROJECT_ROOT_DIR}/library/mujoco")
 

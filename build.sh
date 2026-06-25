@@ -391,7 +391,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
-    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
+    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -408,7 +408,7 @@ show_usage() {
     echo -e "  $0 -mj                # Build with CMake and MuJoCo simulator support"
     echo -e "  $0 -m -r go2          # Deploy build for Go2 only (CMake)"
     echo -e "  $0 -r g1              # Deploy build for G1 only (ROS)"
-    echo -e "  $0 -r sim             # Build only rl_sim (Gazebo) without any robot SDKs"
+    echo -e "  $0 -r gazebo          # Build only rl_sim (Gazebo) without any robot SDKs"
 }
 
 main() {
@@ -427,7 +427,7 @@ main() {
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
             -r|--robot)
                 if [ -z "$2" ]; then
-                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
+                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo)"
                     exit 1
                 fi
                 robot="$2"; shift 2 ;;
@@ -443,10 +443,10 @@ main() {
     # Validate --robot value
     if [ -n "$robot" ]; then
         case "$robot" in
-            a1|lite3|go2|g1|l4w4|d1|quickbot|sim) ;;
+            a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo) ;;
             *)
                 print_error "Unknown target: $robot"
-                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, quickbot, sim"
+                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, quickbot, gazebo"
                 exit 1 ;;
         esac
     fi
@@ -466,8 +466,8 @@ main() {
 
     # Handle CMake build mode
     if [ "$cmake_mode" = true ]; then
-        if [ "$robot" = "sim" ]; then
-            print_error "-r sim is incompatible with --cmake (rl_sim requires Gazebo + ROS, use the ROS build path)"
+        if [ "$robot" = "gazebo" ]; then
+            print_error "-r gazebo is incompatible with --cmake (rl_sim requires Gazebo + ROS, use the ROS build path)"
             exit 1
         fi
         setup_inference_runtime
