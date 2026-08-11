@@ -110,9 +110,11 @@ def generate_launch_description():
         }],
     )
 
-    # robot_self_filter: strips the robot's own body from the BEV lidar cloud (/lidar/points ->
-    # /lidar/points_filtered) so rl_sim only rasterizes terrain. go2-specific; disable with bev_lidar:=false
-    # for robots without the lidar. The filter config (link names) lives in the go2_description package.
+    # robot_self_filter: strips the robot's own body from the BEV lidar cloud
+    # (/lidar/points -> /lidar/points_self_filtered, still in the Gazebo sensor
+    # frame) so rl_sim only rasterizes terrain. go2-specific; disable with
+    # bev_lidar:=false for robots without the lidar. The filter config (link names)
+    # lives in the go2_description package.
     self_filter_config = os.path.join(
         get_package_share_directory("go2_description"), "config", "self_filter.yaml"
     )
@@ -133,8 +135,30 @@ def generate_launch_description():
         ],
         remappings=[
             ("/cloud_in", "/lidar/points"),
-            ("/cloud_out", "/lidar/points_filtered"),
+            ("/cloud_out", "/lidar/points_self_filtered"),
         ],
+    )
+
+    # Re-express the self-filtered cloud from the Gazebo sensor frame into `base`
+    # (the URDF root) before rl_sim rasterizes it. The dreamwaq_bev_direct policy
+    # config uses an identity bev_lidar_mount (the cloud is expected already in the
+    # base frame, matching the real robot's go2_1/base_link driver output), so the
+    # sensor->base extrinsic must be applied here instead. stride=1 => no thinning;
+    # the static sensor->base TF comes from the URDF via robot_state_publisher.
+    bev_to_base_node = Node(
+        package="llc_utils",
+        executable="decimate_pointcloud",
+        name="bev_to_base",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("bev_lidar")),
+        parameters=[{
+            "input_topic": "/lidar/points_self_filtered",
+            "output_topic": "/lidar/points_filtered",
+            "target_frame": "base",
+            "stride": 1,
+            "restamp": False,
+            "use_sim_time": True,
+        }],
     )
 
     return LaunchDescription([
@@ -166,5 +190,6 @@ def generate_launch_description():
         delayed_joy_node,
         param_node,
         self_filter_node,
+        bev_to_base_node,
     ])
 

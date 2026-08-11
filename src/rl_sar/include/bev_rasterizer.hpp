@@ -49,6 +49,15 @@ inline std::vector<float> RasterizeLidarBEV(
     const std::string height_stat = params.Get<std::string>("bev_height_stat");
     const auto mount_xyz = params.Get<std::vector<float>>("bev_lidar_mount_xyz");
     const auto mount_rpy = params.Get<std::vector<float>>("bev_lidar_mount_rpy");
+    // Optional vertical crop [z_min, z_max], applied in the yaw-aligned base frame
+    // (height relative to the gravity-leveled base). Unset -> no crop, so existing
+    // configs (e.g. the forward-down L1 sim) are unchanged. Useful for a top-mounted
+    // sensor that sees ceilings/overhangs: without it, "max" aggregation lets an
+    // overhead return dominate a cell and masquerade as terrain height.
+    const auto z_range = params.Get<std::vector<float>>("bev_z_range");
+    const bool crop_z = (z_range.size() == 2);
+    const float z_min = crop_z ? z_range[0] : 0.0f;
+    const float z_max = crop_z ? z_range[1] : 0.0f;
 
     const float x_min = x_range[0], x_max = x_range[1];
     const float y_min = y_range[0], y_max = y_range[1];
@@ -116,6 +125,7 @@ inline std::vector<float> RasterizeLidarBEV(
         const float yx = A[0] * px + A[1] * py + A[2] * pz + b[0];
         const float yy = A[3] * px + A[4] * py + A[5] * pz + b[1];
         const float yz = A[6] * px + A[7] * py + A[8] * pz + b[2];
+        if (crop_z && (yz < z_min || yz > z_max)) continue; // drop out-of-band (e.g. overhead) points
         const int ix = static_cast<int>(std::floor((yx - x_min) / res));
         const int iy = static_cast<int>(std::floor((yy - y_min) / res));
         if (ix < 0 || ix >= grid_h || iy < 0 || iy >= grid_w) continue;

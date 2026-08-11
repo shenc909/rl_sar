@@ -13,8 +13,16 @@ go2/dreamwaq_bev_direct:
   bev_y_range: [-0.5, 0.5]             # lateral grid extent (m); 11 cells at 0.1 res
   bev_resolution: 0.1
   bev_height_stat: "max"               # per-cell aggregation: top surface (matches training)
-  bev_lidar_mount_xyz: [0.28945, 0.0, -0.046825]  # radar_joint origin (L1 mount, base frame)
-  bev_lidar_mount_rpy: [0.0, 2.8782, 0.0]         # radar_joint rotation (forward-down dome)
+#   bev_lidar_mount_xyz: [0.28945, 0.0, -0.046825]  # radar_joint origin (L1 mount, base frame)
+#   bev_lidar_mount_rpy: [0.0, 2.8782, 0.0]         # radar_joint rotation (forward-down dome)
+  bev_lidar_mount_xyz: [0.0, 0.0, 0.0]
+  bev_lidar_mount_rpy: [0.0, 0.0, 0.0]
+  # Optional vertical crop, in the yaw-aligned base frame (height relative to the
+  # gravity-leveled base). The base stands ~0.30 m above terrain, so terrain sits
+  # near z=-0.30; this band keeps terrain while dropping ceilings/overhangs that a
+  # top-mounted sensor sees (without it, "max" aggregation lets an overhead return
+  # masquerade as terrain height). Tune to your sensor/environment.
+  bev_z_range: [-0.8, 0.0]
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
   observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
   observations_history_priority: "term"  # "time" or "term" priority

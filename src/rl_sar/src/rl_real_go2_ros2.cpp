@@ -82,7 +82,7 @@ RL_Real::RL_Real(int argc, char **argv)
     // same topic name as the Gazebo pipeline). Points must be in the L1 sensor frame; the
     // bev_lidar_mount_* params in the policy config map them into the base frame.
     this->lidar_subscriber = ros2_node->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/lidar/points_filtered", rclcpp::SensorDataQoS(),
+        "/go2_1/vdb_map/local_cells", rclcpp::SensorDataQoS(),
         [this] (const sensor_msgs::msg::PointCloud2::SharedPtr msg) {this->LidarCallback(msg);}
     );
 

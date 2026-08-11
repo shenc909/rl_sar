@@ -1,10 +1,11 @@
-# Downsample an incoming PointCloud2 by keeping every other point and
-# republish the decimated cloud, halving the point count for downstream
-# consumers that don't need full lidar density.
+# Downsample an incoming PointCloud2 by keeping every `stride`-th point and
+# republish it, thinning the point count for downstream consumers that don't
+# need full lidar density. stride=1 keeps every point (no thinning).
 #
 # Optionally re-expresses the cloud in a target frame via a one-shot (static)
 # TF lookup, and/or re-stamps the output with publish time. Both default off,
 # so the node is a pure sensor-frame decimator unless configured otherwise.
+# (With stride=1 + target_frame set, it becomes a pure re-expression pass.)
 
 import numpy as np
 import rclpy
@@ -21,6 +22,10 @@ class DecimatePointCloud(Node):
 
         self.declare_parameter("input_topic", "/utlidar/cloud")
         self.declare_parameter("output_topic", "/utlidar/cloud_decimated")
+        # Keep every `stride`-th point. stride=1 disables decimation, turning the
+        # node into a pure re-expression pass (e.g. sim: transform to base frame
+        # without thinning); stride>1 downsamples.
+        self.declare_parameter("stride", 10)
         # Empty target_frame disables the transform — the cloud is republished
         # in whatever frame the driver stamped on it.
         self.declare_parameter("target_frame", "")
@@ -33,6 +38,7 @@ class DecimatePointCloud(Node):
         input_topic = self.get_parameter("input_topic").value
         output_topic = self.get_parameter("output_topic").value
         self.target_frame = self.get_parameter("target_frame").value
+        self.stride = max(1, int(self.get_parameter("stride").value))
         self.restamp = bool(self.get_parameter("restamp").value)
 
         # Cached source->target transform. (R is 3x3 float64, t is 3-vector;
@@ -51,9 +57,12 @@ class DecimatePointCloud(Node):
         )
 
         target_info = f" -> '{self.target_frame}'" if self.target_frame else ""
+        stride_info = (
+            "(pure pass-through)" if self.stride == 1
+            else f"(keeping every {self.stride}th point)"
+        )
         self.get_logger().info(
-            f"Decimating {input_topic} -> {output_topic}{target_info} "
-            "(keeping every other point)"
+            f"Decimating {input_topic} -> {output_topic}{target_info} {stride_info}"
         )
 
     def ensure_transform(self, source_frame: str) -> bool:
@@ -134,7 +143,8 @@ class DecimatePointCloud(Node):
         # the points regardless of field layout.
         arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(-1, msg.point_step)
         # bytearray (not bytes) so the optional transform can edit xyz in place.
-        data = bytearray(arr[::2].tobytes())
+        # stride=1 keeps every point (pure pass-through / re-expression).
+        data = bytearray(arr[::self.stride].tobytes())
         kept = len(data) // msg.point_step
 
         source_frame = msg.header.frame_id
