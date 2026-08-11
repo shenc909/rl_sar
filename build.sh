@@ -109,6 +109,30 @@ run_mujoco_build() {
     print_success "MuJoCo build completed!"
 }
 
+# Map a `-r <target>` to the leaf packages whose dependency subtree should be
+# built. rl_sar's REP-149 conditional deps (keyed off the exported TARGET_ROBOT)
+# prune the message/SDK packages of other robots, so building "up to" these
+# leaves pulls in only the dependencies specific to the target — not the whole
+# workspace. Robot descriptions are independent leaf packages (nothing depends
+# on them), so the relevant one is named explicitly.
+target_robot_packages() {
+    local target="$1"
+    if [ "$target" = "gazebo" ]; then
+        # The Gazebo sim can load any robot, so include every *_description.
+        local descriptions
+        descriptions=$(find src -type d -name '*_description' -printf '%f\n' | sort -u | tr '\n' ' ')
+        echo "rl_sar ${descriptions}"
+    else
+        local desc_dir
+        desc_dir=$(find src -type d -name "${target}_description" | head -n1)
+        if [ -n "$desc_dir" ]; then
+            echo "rl_sar ${target}_description"
+        else
+            echo "rl_sar"
+        fi
+    fi
+}
+
 run_ros_build() {
     local debug="$1"
     local full_debug="$2"
@@ -137,7 +161,9 @@ run_ros_build() {
     # other robots' executables (they are gated on TARGET_ROBOT STREQUAL "").
     colcon_extra_args+=("-DTARGET_ROBOT=$robot")
     catkin_extra_args+=("-DTARGET_ROBOT=$robot")
-    if [ -n "$robot" ]; then
+    if [ "$robot" = "gazebo" ]; then
+        print_info "Target: gazebo (only rl_sim and robot descriptions will be built)"
+    elif [ -n "$robot" ]; then
         print_info "Target robot: $robot (only rl_real_$robot will be built)"
     fi
 
@@ -161,20 +187,18 @@ run_ros_build() {
         create_symlinks_for_specific_packages "${packages[@]}"
     fi
 
+    # For a per-robot build (`-r <target>` with no explicit package list),
+    # restrict the build to that target's dependency subtree instead of the
+    # whole workspace. Symlinks were created for every package above so colcon
+    # can still resolve the subtree's dependencies.
+    local up_to_pkgs=()
+    if [ ${#packages[@]} -eq 0 ] && [ -n "$robot" ]; then
+        read -r -a up_to_pkgs <<< "$(target_robot_packages "$robot")"
+    fi
+
     # Execute build
-    if [ ${#packages[@]} -eq 0 ]; then
-        if [[ "$ROS_DISTRO" == "noetic" ]]; then
-            print_header "[Using catkin build]"
-            print_info "Building all packages..."
-            print_info "Build type: $build_type"
-            catkin build "${catkin_extra_args[@]}"
-        else
-            print_header "[Using colcon build]"
-            print_info "Building all packages..."
-            print_info "Build type: $build_type"
-            colcon build --merge-install --symlink-install "${colcon_extra_args[@]}"
-        fi
-    else
+    if [ ${#packages[@]} -gt 0 ]; then
+        # Explicit user-specified package list
         if [[ "$ROS_DISTRO" == "noetic" ]]; then
             print_header "[Using catkin build]"
             print_info "Building specific packages: $package_list"
@@ -185,6 +209,32 @@ run_ros_build() {
             print_info "Building specific packages: $package_list"
             print_info "Build type: $build_type"
             colcon build --merge-install --symlink-install --packages-select $package_list "${colcon_extra_args[@]}"
+        fi
+    elif [ ${#up_to_pkgs[@]} -gt 0 ]; then
+        # Per-robot subtree build (only this target's dependencies)
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building ${robot} subtree: ${up_to_pkgs[*]}"
+            print_info "Build type: $build_type"
+            catkin build "${up_to_pkgs[@]}" "${catkin_extra_args[@]}"
+        else
+            print_header "[Using colcon build]"
+            print_info "Building ${robot} subtree: ${up_to_pkgs[*]}"
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install --packages-up-to "${up_to_pkgs[@]}" "${colcon_extra_args[@]}"
+        fi
+    else
+        # Full workspace build
+        if [[ "$ROS_DISTRO" == "noetic" ]]; then
+            print_header "[Using catkin build]"
+            print_info "Building all packages..."
+            print_info "Build type: $build_type"
+            catkin build "${catkin_extra_args[@]}"
+        else
+            print_header "[Using colcon build]"
+            print_info "Building all packages..."
+            print_info "Build type: $build_type"
+            colcon build --merge-install --symlink-install "${colcon_extra_args[@]}"
         fi
     fi
 
@@ -391,7 +441,7 @@ show_usage() {
     echo -e "  -c, --clean      Clean workspace (remove symlinks and build artifacts)"
     echo -e "  -m, --cmake      Build using CMake (for hardware deployment only)"
     echo -e "  -mj,--mujoco     Build with MuJoCo simulator support (CMake only)"
-    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
+    echo -e "  -r, --robot NAME Build only the specified target (a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo)"
     echo -e "  -d, --debug      Build with debug symbols (RelWithDebInfo)"
     echo -e "      --full-debug Build unoptimized with full debug symbols (Debug)"
     echo -e "  -h, --help       Show this help message"
@@ -408,7 +458,7 @@ show_usage() {
     echo -e "  $0 -mj                # Build with CMake and MuJoCo simulator support"
     echo -e "  $0 -m -r go2          # Deploy build for Go2 only (CMake)"
     echo -e "  $0 -r g1              # Deploy build for G1 only (ROS)"
-    echo -e "  $0 -r sim             # Build only rl_sim (Gazebo) without any robot SDKs"
+    echo -e "  $0 -r gazebo          # Build only rl_sim (Gazebo) without any robot SDKs"
 }
 
 main() {
@@ -427,7 +477,7 @@ main() {
             -mj|--mujoco) cmake_mode=true; mujoco_mode=true; shift ;;
             -r|--robot)
                 if [ -z "$2" ]; then
-                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|quickbot|sim)"
+                    print_error "--robot requires a value (a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo)"
                     exit 1
                 fi
                 robot="$2"; shift 2 ;;
@@ -443,10 +493,10 @@ main() {
     # Validate --robot value
     if [ -n "$robot" ]; then
         case "$robot" in
-            a1|lite3|go2|g1|l4w4|d1|quickbot|sim) ;;
+            a1|lite3|go2|g1|l4w4|d1|quickbot|gazebo) ;;
             *)
                 print_error "Unknown target: $robot"
-                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, quickbot, sim"
+                print_info "Valid targets: a1, lite3, go2, g1, l4w4, d1, quickbot, gazebo"
                 exit 1 ;;
         esac
     fi
@@ -466,8 +516,8 @@ main() {
 
     # Handle CMake build mode
     if [ "$cmake_mode" = true ]; then
-        if [ "$robot" = "sim" ]; then
-            print_error "-r sim is incompatible with --cmake (rl_sim requires Gazebo + ROS, use the ROS build path)"
+        if [ "$robot" = "gazebo" ]; then
+            print_error "-r gazebo is incompatible with --cmake (rl_sim requires Gazebo + ROS, use the ROS build path)"
             exit 1
         fi
         setup_inference_runtime

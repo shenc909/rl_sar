@@ -36,12 +36,12 @@ namespace plt = matplotlibcpp;
 // Generic "ROS interface layer" Go2 node: consumes standard ROS2 topics
 // (sensor_msgs Imu / Joy) plus quickbot_interface/MotorFeedback, and publishes
 // joint targets as quickbot_interface/MotorSetpoints. No Unitree SDK.
-#define TOPIC_JOINT_STATES "/bridge_node/motor_feedback"
-#define TOPIC_IMU "/imu/data"
-#define TOPIC_JOY "/bridge_node/joy"
+#define TOPIC_JOINT_STATES "/interface/motor_feedback"
+#define TOPIC_IMU "/xsens/imu/data"
+#define TOPIC_JOY "/interface/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
-#define TOPIC_JOINT_COMMAND "/bridge_node/motor_setpoints"
+#define TOPIC_JOINT_COMMAND "/interface/motor_setpoints"
 
 class RL_Real : public RL
 {
@@ -86,6 +86,21 @@ private:
 
     sensor_msgs::msg::Imu imu_msg;
     sensor_msgs::msg::Joy joy_msg;
+    // Startup safety interlock: stays false (controller inputs ignored, FSM held
+    // in Passive) until the controller is first seen in the neutral start state.
+    bool joy_armed = false;
+    // Tracks the previous estop (buttons[0]) level so engagement is logged once
+    // on the rising edge while still being enforced every tick.
+    bool estop_engaged_prev = false;
+
+    // joystick_scale lives in per-policy config.yaml. JoyCallback runs on the ROS
+    // executor thread, while config switches rebuild params.config_node on the
+    // loop_control thread; YAML::Node is not thread-safe, so reading the node
+    // from JoyCallback races the rebuild (manifests as "joystick_scale
+    // nonexistent"). Cache it instead and refresh on every config change.
+    std::mutex joystick_scale_mutex;
+    std::vector<float> joystick_scale_cache{1.0f, 1.0f, 1.0f, 1.0f};
+    void RefreshJoystickScale();
     std::mutex state_mutex;
     quickbot_interface::msg::MotorFeedback latest_motor_feedback;
     bool joint_state_received = false;

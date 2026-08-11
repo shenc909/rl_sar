@@ -25,14 +25,14 @@
     <depend>geometry_msgs</depend>
     <depend>robot_msgs</depend>
 
-    <!-- rl_sim (Gazebo) — full build or `-r sim`. -->
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">controller_manager</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">joint_state_controller</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_state_publisher</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">gazebo_ros</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">tf</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">robot_joint_controller</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'sim'">rospy</depend>
+    <!-- rl_sim (Gazebo) — full build or `-r gazebo`. -->
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">controller_manager</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">joint_state_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_state_publisher</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">gazebo_ros</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">tf</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_joint_controller</depend>
+    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">rospy</depend>
 
     <export>
 

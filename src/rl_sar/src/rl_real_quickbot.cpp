@@ -27,6 +27,7 @@ RL_Real::RL_Real(int argc, char **argv)
     this->ang_vel_axis = "body";
     this->robot_name = "quickbot";
     this->ReadYaml(this->robot_name, "base.yaml");
+    this->RefreshJoystickScale();
 
     // auto load FSM by robot_name
     if (FSMManager::GetInstance().IsTypeSupported(this->robot_name))
@@ -165,8 +166,20 @@ RL_Real::~RL_Real()
     std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
 }
 
+void RL_Real::RefreshJoystickScale()
+{
+    auto scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    if (scale.size() < 4) scale.resize(4, 1.0f);
+    std::lock_guard<std::mutex> lock(this->joystick_scale_mutex);
+    this->joystick_scale_cache = std::move(scale);
+}
+
 void RL_Real::OnConfigSwitched()
 {
+    // Runs at the tail of SwitchToConfig under output_mutex, with the new
+    // policy's config.yaml already merged into params — safe to snapshot here.
+    this->RefreshJoystickScale();
+
     const float rl_period = this->params.Get<float>("dt") * this->params.Get<int>("decimation");
     if (this->loop_rl) this->loop_rl->SetPeriod(rl_period);
     // Intentionally not retuning loop_control — see NOTES.md for why dt should
@@ -379,6 +392,47 @@ void RL_Real::JoyCallback(
     auto btn_val = [&](size_t i) { return i < this->joy_msg.buttons.size() ? this->joy_msg.buttons[i] : 0; };
     auto axis    = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
 
+    // E-stop on buttons[0] (same 2-pole convention as nav: nonzero == engaged).
+    // When engaged, drive the FSM back to Passive and disarm so the operator
+    // must re-establish the neutral start state to resume. Enforced every tick
+    // (RequestStateChange no-ops once already Passive); logged once on the edge.
+    const bool estop_engaged = (btn_val(0) == 0);
+    if (estop_engaged)
+    {
+        if (!this->estop_engaged_prev)
+        {
+            RCLCPP_WARN(ros2_node->get_logger(),
+                "E-stop engaged: forcing Passive and disarming; controller must be "
+                "re-armed (neutral start state) once e-stop clears.");
+        }
+        this->estop_engaged_prev = true;
+        this->joy_armed = false;
+        this->control.navigation_mode = false;
+        this->fsm.RequestStateChange("RLFSMStatePassive");
+        return;
+    }
+    this->estop_engaged_prev = false;
+
+    // Startup safety interlock: ignore all controller commands (holding the FSM
+    // in Passive) until the controller is first observed in the neutral/safe
+    // start state — nav mode off, fsm switch at GetDown, policy selector at none.
+    // This prevents the robot from leaving Passive if the program starts with a
+    // switch left in an active position. Latched once, it stays armed for the
+    // remainder of the session.
+    if (!this->joy_armed)
+    {
+        const bool safe_start = (btn_val(1) == 0) && (btn_val(2) == -1) && (btn_val(3) == -1);
+        if (!safe_start)
+        {
+            RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 2000,
+                "Controller not in neutral start state (nav off, fsm GetDown, policy none); "
+                "ignoring inputs and holding Passive.");
+            return;
+        }
+        this->joy_armed = true;
+        RCLCPP_INFO(ros2_node->get_logger(), "Controller armed: neutral start state observed.");
+    }
+
     // btn(1) 2-pole nav mode: drive the level-state bool directly so 1→0 disables, 0→1 enables.
     this->control.navigation_mode = (btn_val(1) != 0);
 
@@ -398,10 +452,16 @@ void RL_Real::JoyCallback(
         break;
     }
 
-    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+    // Read the cached scale (refreshed on config switch) rather than the YAML
+    // params node, which the config-switch thread may be rebuilding.
+    std::vector<float> joystick_scale;
+    {
+        std::lock_guard<std::mutex> lock(this->joystick_scale_mutex);
+        joystick_scale = this->joystick_scale_cache;
+    }
     this->control.x = axis(2) * joystick_scale[1];   // LY
-    this->control.y = axis(3) * joystick_scale[0];   // LX
-    this->control.yaw = axis(0) * joystick_scale[2]; // RX
+    this->control.y = -axis(3) * joystick_scale[0];   // LX
+    this->control.yaw = -axis(0) * joystick_scale[2]; // RX
 }
 
 void RL_Real::CmdvelCallback(
