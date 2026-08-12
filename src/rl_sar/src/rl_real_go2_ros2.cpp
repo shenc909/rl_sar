@@ -81,6 +81,7 @@ RL_Real::RL_Real(int argc, char **argv)
     // BEV lidar subscriber: the self-filtered L1 cloud (robot_self_filter -> /lidar/points_filtered,
     // same topic name as the Gazebo pipeline). Points must be in the L1 sensor frame; the
     // bev_lidar_mount_* params in the policy config map them into the base frame.
+    // Hardcoded to VDB map topic for now.
     this->lidar_subscriber = ros2_node->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/go2_1/vdb_map/local_cells", rclcpp::SensorDataQoS(),
         [this] (const sensor_msgs::msg::PointCloud2::SharedPtr msg) {this->LidarCallback(msg);}

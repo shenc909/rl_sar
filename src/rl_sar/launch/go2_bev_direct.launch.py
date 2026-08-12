@@ -115,7 +115,9 @@ def generate_launch_description():
     # already decimated and already in go2_1/base_link, so the decimator is
     # unnecessary. Kept commented rather than deleted; re-enable if a raw/dense
     # cloud source needs thinning (and set target_frame if it also needs
-    # re-expressing).
+    # re-expressing). The pattern params below downsample a dense Hesai cloud to
+    # the HesaiJT128 band the policy trained on (channels 29..127 step 3, azimuth
+    # [-180,180) at 4 deg); they are ignored for clouds without a 'ring' field.
     # decimate_pointcloud_node = Node(
     #     package="llc_utils",
     #     executable="decimate_pointcloud",
@@ -124,6 +126,10 @@ def generate_launch_description():
     #     parameters=[{
     #         "input_topic": cloud_in,
     #         "output_topic": decimated_topic,
+    #         "horizontal_fov_range": [-180.0, 180.0],
+    #         "horizontal_res": 4.0,
+    #         "channel_range": [29, 128],
+    #         "channel_skip": 3,
     #         "target_frame": "",
     #         "restamp": True,
     #     }],

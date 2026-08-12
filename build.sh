@@ -121,7 +121,10 @@ target_robot_packages() {
         # The Gazebo sim can load any robot, so include every *_description.
         local descriptions
         descriptions=$(find src -type d -name '*_description' -printf '%f\n' | sort -u | tr '\n' ' ')
-        echo "rl_sar ${descriptions}"
+        # llc_utils is a leaf too (nothing depends on it), but gazebo.launch.py
+        # runs its decimate_pointcloud node to re-express the BEV cloud into the
+        # base frame, so a -r gazebo workspace must contain it.
+        echo "rl_sar llc_utils ${descriptions}"
     else
         local desc_dir
         desc_dir=$(find src -type d -name "${target}_description" | head -n1)

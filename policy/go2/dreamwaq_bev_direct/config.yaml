@@ -1,5 +1,20 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
+#
+# Policy provenance (ComplexGo2RL, IsaacLab + rsl_rl; W&B entity shenc909,
+# project go2_velocity_dreamwaq_perception_rougher, experiment
+# go2_velocity_dreamwaq_perception_bev_direct_rougher):
+#
+#   dreamwaq_bev_direct_30k.pt  <- run rk4tnv2q  (2026-05-27_01-03-22)
+#       https://wandb.ai/shenc909/go2_velocity_dreamwaq_perception_rougher/runs/rk4tnv2q
+#       finished, 29999 iters. The deployed policy.
+#
+#   dreamwaq_bev_direct.pt      <- run 0k3igifc  (2026-05-24_12-14-27)
+#       https://wandb.ai/shenc909/go2_velocity_dreamwaq_perception_rougher/runs/0k3igifc
+#       crashed at 19711 iters. Superseded; kept only for comparison.
+#
+# The exported .pt carries no training metadata, so record the run id here
+# whenever model_name changes.
 
 go2/dreamwaq_bev_direct:
   model_name: "dreamwaq_bev_direct_30k.pt"
