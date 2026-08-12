@@ -58,6 +58,19 @@ inline std::vector<float> RasterizeLidarBEV(
     const bool crop_z = (z_range.size() == 2);
     const float z_min = crop_z ? z_range[0] : 0.0f;
     const float z_max = crop_z ? z_range[1] : 0.0f;
+    // Optional planar crop [min, max] per axis, applied in the yaw-aligned base frame
+    // (distance from the base origin along x / y). Independent of the grid extent: the
+    // grid stays sized by bev_x_range/bev_y_range, these only reject points before
+    // binning. Unset -> no crop, so existing configs are unchanged. Use it to ignore
+    // returns beyond (or ahead of) a chosen distance without resizing the observation.
+    const auto x_crop = params.Get<std::vector<float>>("bev_x_crop");
+    const auto y_crop = params.Get<std::vector<float>>("bev_y_crop");
+    const bool crop_x = (x_crop.size() == 2);
+    const bool crop_y = (y_crop.size() == 2);
+    const float x_crop_min = crop_x ? x_crop[0] : 0.0f;
+    const float x_crop_max = crop_x ? x_crop[1] : 0.0f;
+    const float y_crop_min = crop_y ? y_crop[0] : 0.0f;
+    const float y_crop_max = crop_y ? y_crop[1] : 0.0f;
 
     const float x_min = x_range[0], x_max = x_range[1];
     const float y_min = y_range[0], y_max = y_range[1];
@@ -126,6 +139,8 @@ inline std::vector<float> RasterizeLidarBEV(
         const float yy = A[3] * px + A[4] * py + A[5] * pz + b[1];
         const float yz = A[6] * px + A[7] * py + A[8] * pz + b[2];
         if (crop_z && (yz < z_min || yz > z_max)) continue; // drop out-of-band (e.g. overhead) points
+        if (crop_x && (yx < x_crop_min || yx > x_crop_max)) continue; // drop points outside the x crop
+        if (crop_y && (yy < y_crop_min || yy > y_crop_max)) continue; // drop points outside the y crop
         const int ix = static_cast<int>(std::floor((yx - x_min) / res));
         const int iy = static_cast<int>(std::floor((yy - y_min) / res));
         if (ix < 0 || ix >= grid_h || iy < 0 || iy >= grid_w) continue;

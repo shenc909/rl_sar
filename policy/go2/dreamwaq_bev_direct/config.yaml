@@ -38,6 +38,12 @@ go2/dreamwaq_bev_direct:
   # top-mounted sensor sees (without it, "max" aggregation lets an overhead return
   # masquerade as terrain height). Tune to your sensor/environment.
   bev_z_range: [-0.8, 0.0]
+  # Optional planar crop, in the yaw-aligned base frame (distance from the base origin
+  # along x / y). Independent of the grid: the BEV stays 17x11 as sized above, these
+  # only reject points before binning, so cells outside the crop simply read empty
+  # (0, 0). Use them to ignore returns past a chosen distance. Unset -> no crop.
+  bev_x_crop: [0.0, 0.8]
+#   bev_y_crop: [-0.3, 0.3]
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
   observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
   observations_history_priority: "term"  # "time" or "term" priority
