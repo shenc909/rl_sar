@@ -251,7 +251,7 @@ Visit [http://robot.robotsfan.com/](http://robot.robotsfan.com/), fill in the IP
 |**Basic**|||
 |A|Num0|Move the robot from its initial program pose to the `default_dof_pos` defined in `base.yaml` using position control interpolation|
 |B|Num9|Move the robot from its current position to the initial program pose using position control interpolation|
-|X|N|Toggle navigation mode (disables velocity commands, receives `cmd_vel` topic)|
+|X|N|Toggle navigation mode (disables velocity commands, receives `cmd_vel` topic, and `cmd_height` for height-command policies)|
 |Y|N/A|N/A|
 |**Simulation**|||
 |RB+Y|R|Reset Gazebo environment (stand up fallen robot)|
@@ -274,7 +274,8 @@ Visit [http://robot.robotsfan.com/](http://robot.robotsfan.com/), fill in the IP
 |LY Axis|W/S|Forward/Backward movement (X-axis)|
 |LX Axis|A/D|Left/Right movement (Y-axis)|
 |RX Axis|Q/E|Yaw rotation|
-|N/A (Release joystick)|Space|Reset all control commands to zero|
+|RY Axis|Up/Down (sim)|Base height command, for policies with a `height_cmd` observation. Stick sets the rate of change; height is held on release|
+|N/A (Release joystick)|Space|Reset all control commands to zero (and the height command to nominal)|
 
 ### Real Robots
 

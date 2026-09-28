@@ -24,12 +24,14 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <atomic>
 
 #if defined(USE_ROS1)
 #include <ros/ros.h>
 #include "std_srvs/Empty.h"
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Float32.h>
 #include <gazebo_msgs/ModelStates.h>
 #include "robot_msgs/MotorCommand.h"
 #include "robot_msgs/MotorState.h"
@@ -44,6 +46,7 @@
 #include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <rcl_interfaces/srv/get_parameters.hpp>
 #endif
@@ -102,6 +105,8 @@ private:
     void JointStatesCallback(const robot_msgs::MotorState::ConstPtr &msg, const std::string &joint_controller_name);
     void CmdvelCallback(const geometry_msgs::Twist::ConstPtr &msg);
     void JoyCallback(const sensor_msgs::Joy::ConstPtr &msg);
+    ros::Subscriber cmd_height_subscriber;
+    void CmdHeightCallback(const std_msgs::Float32::ConstPtr &msg);
 #elif defined(USE_ROS2)
     sensor_msgs::msg::Imu gazebo_imu;
     geometry_msgs::msg::Twist cmd_vel;
@@ -124,6 +129,8 @@ private:
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);
     void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
+    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr cmd_height_subscriber;
+    void CmdHeightCallback(const std_msgs::msg::Float32::SharedPtr msg);
     // BEV lidar: subscribe to the self-filtered cloud and rasterize it into the height_scan BEV.
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_subscriber;
     sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud;
@@ -131,6 +138,16 @@ private:
     void LidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     std::vector<float> ComputeHeightScanBEV();
 #endif
+
+    // height command: RY stick (integrated as a rate) and the cmd_height topic (navigation mode only,
+    // passed straight through)
+    float joy_height_axis = 0.0f;
+    // Keyboard Up/Down steps and Space re-centre, queued by RobotControl (control loop) and applied in
+    // RunModel so control.height is only written from the RL loop.
+    std::atomic<int> height_key_steps{0};
+    std::atomic<bool> height_key_reset{false};
+    std::atomic<float> cmd_height{0.0f};
+    std::atomic<bool> cmd_height_received{false};
 
     // others
     std::string gazebo_model_name;

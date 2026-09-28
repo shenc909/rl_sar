@@ -1,0 +1,68 @@
+# Copyright (c) 2024-2025 Ziqi Fan
+# SPDX-License-Identifier: Apache-2.0
+
+go2/dreamwaq_heightcmd:
+  model_name: "dreamwaq_flat_const_hm_heightcmd_det.pt"
+  transition_duration: 2.0
+  num_observations: 46
+  num_height_scan_points: 187
+  # Trained with the height scan replaced by a constant 0.33 (PropConstantModifierCfg, proportion=1.0), so feed
+  # the constant on both sim and real instead of a live elevation map.
+  height_scan_fill: [0.33]
+  height_scan_source: "constant"
+  observations: ["commands", "height_cmd", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions", "height_scan"]
+  observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
+  observations_history_priority: "term"  # "time" or "term" priority
+  clip_obs: 100.0
+  clip_actions_lower: [-10, -10, -10, -10,
+                       -10, -10, -10, -10,
+                       -10, -10, -10, -10]
+  clip_actions_upper: [10, 10, 10, 10,
+                       10, 10, 10, 10,
+                       10, 10, 10, 10]
+  rl_kp: [25, 25, 25, 25,
+          25, 25, 25, 25,
+          25, 25, 25, 25]
+  rl_kd: [0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5]
+  fixed_kp: [60, 60, 60, 60,
+             60, 60, 60, 60,
+             60, 60, 60, 60]
+  fixed_kd: [5, 5, 5, 5,
+             5, 5, 5, 5,
+             5, 5, 5, 5]
+  num_of_dofs: 12
+  action_scale: [0.125, 0.125, 0.125, 0.125,  # hips (training scaling_dict: hip 0.125, thigh/calf 0.25)
+                 0.25, 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25, 0.25]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 1.0
+  dof_pos_scale: 1.0
+  dof_vel_scale: 1.0
+  commands_scale: [1.0, 1.0, 1.0]
+  # Base-height command: offset [m] from the trained neutral height (0.33 m); trained on U(-0.25, 0.25)
+  # (W&B shenc909/go2_velocity_dreamwaq_rough run 7u05dujd, model_9999 = this .pt).
+  # Joystick RY integrates it (full stick = height_cmd_rate m/s, held on release); in navigation mode the
+  # cmd_height topic (std_msgs/Float32) sets it directly. Both are clamped to height_cmd_range.
+  height_cmd_default: 0.0
+  height_cmd_range: [-0.25, 0.25]
+  height_cmd_rate: 0.2
+  height_cmd_deadzone: 0.1
+  height_cmd_key_step: 0.05  # rl_sim keyboard: Up/Down arrow step per press [m]; Space re-centres
+  height_cmd_scale: 1.0
+  joystick_scale: [1.0, 1.0, 1.0, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands (RY unused: it drives height_cmd_rate)
+  torque_limits: [23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5,
+                  23.5, 23.5, 23.5, 23.5]
+  default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                    0.8000,  0.8000,  1.0000,  1.0000,
+                    -1.5000, -1.5000, -1.5000, -1.5000]
+  init_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                 0.8000,  0.8000,  1.0000,  1.0000,
+                 -1.5000, -1.5000, -1.5000, -1.5000]
+#   joint_mapping: [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8]
+  explicit_joint_names: ["FL_hip_joint",   "FR_hip_joint",   "RL_hip_joint",   "RR_hip_joint",
+                         "FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint",
+                         "FL_calf_joint",  "FR_calf_joint",  "RL_calf_joint",  "RR_calf_joint"]

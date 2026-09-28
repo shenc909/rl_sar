@@ -72,6 +72,12 @@ RL_Real::RL_Real(int argc, char **argv)
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
 
+    // height command subscriber (only consumed by configs with a "height_cmd" observation)
+    this->cmd_height_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32>(
+        "/go2_1/cmd_height", rclcpp::SystemDefaultsQoS(),
+        [this] (const std_msgs::msg::Float32::SharedPtr msg) {this->CmdHeightCallback(msg);}
+    );
+
     // height_scan subscriber (Float32MultiArray elevation map; used by non-lidar_bev configs)
     this->height_scan_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32MultiArray>(
         "/go2_1/local_elevation_array", rclcpp::SystemDefaultsQoS(),
@@ -365,13 +371,31 @@ void RL_Real::RunModel()
                 RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 5000, "cmd_vel data stale, setting to zero!");
             }
 
+            // Height is a setpoint, not a rate: hold the last received value rather than timing out.
+            // Writing it into control.height keeps the joystick bumpless when leaving navigation mode.
+            if (this->cmd_height_received.load())
+            {
+                this->SetHeightCommand(this->cmd_height.load());
+            }
         }
+        else
+        {
+            // RY recenters, so it drives the rate of change of the held height setpoint.
+            this->UpdateHeightCommand(this->joystick.ry, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+        }
+        this->obs.height_cmd = {this->control.height};
 
         this->obs.base_quat = this->robot_state.imu.quaternion;
         this->obs.dof_pos = this->robot_state.motor_state.q;
         this->obs.dof_vel = this->robot_state.motor_state.dq;
 
-        if (this->params.Get<std::string>("height_scan_source") == "lidar_bev")
+        const std::string height_scan_source = this->params.Get<std::string>("height_scan_source");
+        if (height_scan_source == "constant")
+        {
+            // Policy trained on a constant height map: feed the configured fill, ignore the elevation topic.
+            this->obs.height_scan = this->MakeHeightScanFill();
+        }
+        else if (height_scan_source == "lidar_bev")
         {
             // Rasterize the self-filtered lidar cloud into the 2-channel BEV (shared with rl_sim).
             sensor_msgs::msg::PointCloud2::SharedPtr cloud;
@@ -603,6 +627,14 @@ void RL_Real::CmdvelCallback(
 {
     this->cmd_vel = *msg;
     this->last_cmd_vel_time = ros2_node->now().seconds();
+}
+
+void RL_Real::CmdHeightCallback(
+    const std_msgs::msg::Float32::SharedPtr msg
+)
+{
+    this->cmd_height.store(msg->data);
+    this->cmd_height_received.store(true);
 }
 
 void RL_Real::HeightScanCallback(

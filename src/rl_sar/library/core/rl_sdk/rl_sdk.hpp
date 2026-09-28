@@ -11,6 +11,7 @@
 #include <exception>
 #include <unistd.h>
 #include <algorithm>
+#include <cmath>
 #include <tbb/concurrent_queue.h>
 #include <vector>
 #include <memory>
@@ -118,6 +119,9 @@ struct Control
     float x = 0.0f;
     float y = 0.0f;
     float yaw = 0.0f;
+    // Held base-height setpoint for policies with a "height_cmd" observation. Unlike x/y/yaw it is not
+    // a direct stick mapping: see RL::UpdateHeightCommand / RL::SetHeightCommand.
+    float height = 0.0f;
     bool navigation_mode = false;
 
     void SetKeyboard(Input::Keyboard keyboad)
@@ -176,6 +180,7 @@ struct Observations
     std::vector<T> ang_vel;
     std::vector<T> gravity_vec;
     std::vector<T> commands;
+    std::vector<T> height_cmd;
     std::vector<T> base_quat;
     std::vector<T> dof_pos;
     std::vector<T> dof_vel;
@@ -243,6 +248,13 @@ public:
     // control
     Control control;
     void KeyboardInterface();
+    // Height command (only active when the config defines "height_cmd_range"; no-ops otherwise).
+    // UpdateHeightCommand rate-integrates a recentering stick axis in [-1, 1] into control.height
+    // (full deflection = "height_cmd_rate" units/s, "height_cmd_deadzone" ignored around centre), so the
+    // setpoint is held when the stick is released. SetHeightCommand sets it directly (e.g. from a topic).
+    // Both clamp to "height_cmd_range".
+    void UpdateHeightCommand(float stick, float dt);
+    void SetHeightCommand(float value);
 
     // history buffer
     ObservationBuffer history_obs_buf;

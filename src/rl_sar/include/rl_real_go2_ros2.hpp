@@ -22,9 +22,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
+#include <atomic>
 #include <mutex>
 
 #include "bev_rasterizer.hpp"
@@ -138,6 +140,11 @@ private:
     geometry_msgs::msg::Twist cmd_vel;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    // Height command topic (navigation mode only): passed straight to the policy, no integration.
+    std::atomic<float> cmd_height{0.0f};
+    std::atomic<bool> cmd_height_received{false};
+    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr cmd_height_subscriber;
+    void CmdHeightCallback(const std_msgs::msg::Float32::SharedPtr msg);
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);

@@ -107,7 +107,10 @@ public:
             }
             std::cout << "\r\033[K" << std::flush << LOGGER::INFO
                       << "RL Controller [" << rl.config_name << "] x:" << rl.control.x
-                      << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::endl;
+                      << " y:" << rl.control.y << " yaw:" << rl.control.yaw;
+            if (rl.params.Has("height_cmd_range"))
+                std::cout << " height:" << rl.control.height;
+            std::cout << std::endl;
         }
     }
 

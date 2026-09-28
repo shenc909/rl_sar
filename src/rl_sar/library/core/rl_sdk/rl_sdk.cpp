@@ -93,6 +93,10 @@ std::vector<float> RL::ComputeObservation()
         {
             obs_list.push_back(this->obs.commands * this->params.Get<std::vector<float>>("commands_scale"));
         }
+        else if (observation == "height_cmd")
+        {
+            obs_list.push_back(this->obs.height_cmd * this->params.Get<float>("height_cmd_scale", 1.0f));
+        }
         else if (observation == "dof_pos")
         {
             std::vector<float> dof_pos_rel = this->obs.dof_pos - this->params.Get<std::vector<float>>("default_dof_pos");
@@ -192,6 +196,7 @@ void RL::InitObservations()
     this->obs.ang_vel = {0.0f, 0.0f, 0.0f};
     this->obs.gravity_vec = {0.0f, 0.0f, -1.0f};
     this->obs.commands = {0.0f, 0.0f, 0.0f};
+    this->obs.height_cmd = {this->params.Get<float>("height_cmd_default", 0.0f)};
     this->obs.base_quat = {0.0f, 0.0f, 0.0f, 1.0f};
     this->obs.dof_pos = this->params.Get<std::vector<float>>("default_dof_pos");
     this->obs.dof_vel.clear();
@@ -245,6 +250,26 @@ void RL::InitControl()
     this->control.x = 0.0f;
     this->control.y = 0.0f;
     this->control.yaw = 0.0f;
+    // Called from InitRL on every policy entry, so each (re)entry starts at the nominal height.
+    this->control.height = this->params.Get<float>("height_cmd_default", 0.0f);
+}
+
+void RL::UpdateHeightCommand(float stick, float dt)
+{
+    if (!this->params.Has("height_cmd_range")) return;
+    const float deadzone = std::clamp(this->params.Get<float>("height_cmd_deadzone", 0.1f), 0.0f, 0.99f);
+    float s = std::clamp(stick, -1.0f, 1.0f);
+    if (std::fabs(s) <= deadzone) return;
+    // Rescale past the deadzone so the rate ramps continuously from 0 instead of jumping.
+    s = (s - std::copysign(deadzone, s)) / (1.0f - deadzone);
+    this->SetHeightCommand(this->control.height + s * this->params.Get<float>("height_cmd_rate", 0.2f) * dt);
+}
+
+void RL::SetHeightCommand(float value)
+{
+    const auto range = this->params.Get<std::vector<float>>("height_cmd_range");
+    if (range.size() != 2) return;
+    this->control.height = std::clamp(value, range[0], range[1]);
 }
 
 void RL::InitJointNum(size_t num_joints)

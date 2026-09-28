@@ -99,6 +99,7 @@ RL_Sim::RL_Sim(int argc, char **argv)
     // subscriber
     this->cmd_vel_subscriber = nh.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &RL_Sim::CmdvelCallback, this);
     this->joy_subscriber = nh.subscribe<sensor_msgs::Joy>("/joy", 10, &RL_Sim::JoyCallback, this);
+    this->cmd_height_subscriber = nh.subscribe<std_msgs::Float32>("/cmd_height", 10, &RL_Sim::CmdHeightCallback, this);
     this->model_state_subscriber = nh.subscribe<gazebo_msgs::ModelStates>("/gazebo/model_states", 10, &RL_Sim::ModelStatesCallback, this);
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
@@ -135,6 +136,10 @@ RL_Sim::RL_Sim(int argc, char **argv)
     this->joy_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Joy>(
         "/joy", rclcpp::SystemDefaultsQoS(),
         [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->JoyCallback(msg);}
+    );
+    this->cmd_height_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32>(
+        "/cmd_height", rclcpp::SystemDefaultsQoS(),
+        [this] (const std_msgs::msg::Float32::SharedPtr msg) {this->CmdHeightCallback(msg);}
     );
     this->gazebo_imu_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Imu>(
         "/imu", rclcpp::SystemDefaultsQoS(), [this] (const sensor_msgs::msg::Imu::SharedPtr msg) {this->GazeboImuCallback(msg);}
@@ -390,6 +395,16 @@ void RL_Sim::RobotControl()
 
     this->StateController(&this->robot_state, &this->robot_command);
 
+    // Height command keys: a keyboard can't give a recentering rate like the RY stick, so Up/Down step
+    // the held setpoint by height_cmd_key_step per press; Space (velocity reset) also re-centres it.
+    // Only queued while the policy runs, so presses during GetUp etc. don't fire on policy entry.
+    if (this->rl_init_done)
+    {
+        if (this->control.current_keyboard == Input::Keyboard::Up) this->height_key_steps++;
+        if (this->control.current_keyboard == Input::Keyboard::Down) this->height_key_steps--;
+        if (this->control.current_keyboard == Input::Keyboard::Space) this->height_key_reset = true;
+    }
+
     if (this->control.current_keyboard == Input::Keyboard::R || this->control.current_gamepad == Input::Gamepad::RB_Y)
     {
 #if defined(USE_ROS1)
@@ -458,6 +473,18 @@ void RL_Sim::CmdvelCallback(
     this->cmd_vel = *msg;
 }
 
+void RL_Sim::CmdHeightCallback(
+#if defined(USE_ROS1)
+    const std_msgs::Float32::ConstPtr &msg
+#elif defined(USE_ROS2)
+    const std_msgs::msg::Float32::SharedPtr msg
+#endif
+)
+{
+    this->cmd_height.store(msg->data);
+    this->cmd_height_received.store(true);
+}
+
 void RL_Sim::JoyCallback(
 #if defined(USE_ROS1)
     const sensor_msgs::Joy::ConstPtr &msg
@@ -471,7 +498,7 @@ void RL_Sim::JoyCallback(
     // Layout (Xbox-style via Linux xpad / ROS joy_node, D-pad reported as buttons):
     // |__ buttons[]: A=0, B=1, X=2, Y=3, Quick=4, Power=5, Menu=6, LS=7, RS=8,
     //                LB=9, RB=10, DPadUp=11, DPadDown=12, DPadLeft=13, DPadRight=14
-    // |__ axes[]:    Lx=0, Ly=1, LT=2, Rx=3, Ry=4, RT=5
+    // |__ axes[]:    Lx=0, Ly=1, Rx=2, Ry=3 (as used below; triggers unused)
     // Bounds-checked accessors so a controller with fewer axes/buttons can't
     // OOB-index the underlying vectors (operator[] on std::vector is UB past
     // size() and was reading garbage that decoded as DPadRight every callback).
@@ -516,6 +543,7 @@ void RL_Sim::JoyCallback(
     this->control.x = axis(1) * joystick_scale[1]; // LY
     this->control.y = axis(0) * joystick_scale[0]; // LX
     this->control.yaw = axis(2) * joystick_scale[2]; // RX
+    this->joy_height_axis = axis(3); // RY: integrated into control.height in RunModel
 }
 
 #if defined(USE_ROS1)
@@ -572,7 +600,31 @@ void RL_Sim::RunModel()
         if (this->control.navigation_mode)
         {
             this->obs.commands = {(float)this->cmd_vel.linear.x, (float)this->cmd_vel.linear.y, (float)this->cmd_vel.angular.z};
+            // Topic height is a setpoint: pass it through (held between messages). Writing it into
+            // control.height keeps the joystick bumpless when leaving navigation mode.
+            if (this->cmd_height_received.load())
+            {
+                this->SetHeightCommand(this->cmd_height.load());
+            }
+            // The topic owns the height in navigation mode: drop any queued keyboard input.
+            this->height_key_steps.exchange(0);
+            this->height_key_reset.exchange(false);
         }
+        else
+        {
+            if (this->height_key_reset.exchange(false))
+            {
+                this->SetHeightCommand(this->params.Get<float>("height_cmd_default", 0.0f));
+            }
+            const int key_steps = this->height_key_steps.exchange(0);
+            if (key_steps != 0)
+            {
+                this->SetHeightCommand(this->control.height + key_steps * this->params.Get<float>("height_cmd_key_step", 0.05f));
+            }
+            // RY recenters, so it drives the rate of change of the held height setpoint.
+            this->UpdateHeightCommand(this->joy_height_axis, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+        }
+        this->obs.height_cmd = {this->control.height};
         this->obs.base_quat = this->robot_state.imu.quaternion;
         this->obs.dof_pos = this->robot_state.motor_state.q;
         this->obs.dof_vel = this->robot_state.motor_state.dq;
