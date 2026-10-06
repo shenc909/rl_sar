@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 go2/dreamwaq_speedy:
-  # speedy v4: model_13300 of Isaac-Velocity-Rough-Go2-DreamWAQ-Speedy-v5 (exported by scripts/rsl_rl/export_dwaq_rlsar.py).
+  # speedy v5: model_13300 of Isaac-Velocity-Rough-Go2-DreamWAQ-Speedy-v5 (exported by scripts/rsl_rl/export_dwaq_rlsar.py).
   # Deterministic CENet codes; per-term obs clipping (ang_vel, joint vel) is baked into the model.
   model_name: "dreamwaq_speedy_v5.pt"
   transition_duration: 2.0
