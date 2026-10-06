@@ -23,3 +23,7 @@
 	path = src/ril_robot_descriptions
 	url = git@github.com:shenc909/ril_robot_descriptions.git
 
+[submodule "src/quickbot-interface"]
+	path = src/quickbot-interface
+	url = git@gitlab.com:ril-draconis/quickbot/quickbot-ros/quickbot-interface.git
+	branch = rl_sar

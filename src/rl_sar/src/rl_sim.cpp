@@ -495,10 +495,10 @@ void RL_Sim::JoyCallback(
 {
     this->joy_msg = *msg;
 
-    // Layout (Xbox-style via Linux xpad / ROS joy_node, D-pad reported as buttons):
-    // |__ buttons[]: A=0, B=1, X=2, Y=3, Quick=4, Power=5, Menu=6, LS=7, RS=8,
+    // Layout (SDL GameController via ROS 2 joy/game_controller_node; raw joy_node indices differ):
+    // |__ buttons[]: A=0, B=1, X=2, Y=3, Back=4, Guide=5, Start=6, LS=7, RS=8,
     //                LB=9, RB=10, DPadUp=11, DPadDown=12, DPadLeft=13, DPadRight=14
-    // |__ axes[]:    Lx=0, Ly=1, Rx=2, Ry=3 (as used below; triggers unused)
+    // |__ axes[]:    Lx=0, Ly=1, Rx=2, Ry=3, LT=4, RT=5 (triggers unused)
     // Bounds-checked accessors so a controller with fewer axes/buttons can't
     // OOB-index the underlying vectors (operator[] on std::vector is UB past
     // size() and was reading garbage that decoded as DPadRight every callback).

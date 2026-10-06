@@ -26,7 +26,8 @@ def generate_launch_description():
         Command([
             "xacro ",
             Command(["echo -n ", Command(["ros2 pkg prefix ", rname, "_description"])]),
-            "/share/", rname, "_description/xacro/robot.xacro"
+            "/share/", rname, "_description/xacro/robot.xacro",
+            " bev_lidar:=", LaunchConfiguration("bev_lidar"),
         ]),
         value_type=str
     )
@@ -78,9 +79,14 @@ def generate_launch_description():
         output="screen",
     )
 
+    # game_controller_node (not joy_node): it uses SDL's GameController API, which
+    # normalizes any recognized pad to the fixed layout JoyCallback in rl_sim.cpp
+    # expects (LB=9, RB=10, D-pad as buttons 11-14, axes LX/LY/RX/RY = 0..3).
+    # joy_node publishes raw per-device indices instead, e.g. on an Xbox pad axis 2
+    # is LT (resting at +1.0, which drove yaw to full turn) and the D-pad is axes.
     joy_node = Node(
         package='joy',
-        executable='joy_node',
+        executable='game_controller_node',
         name='joy_node',
         output='screen',
         condition=IfCondition(use_joy),
@@ -112,9 +118,9 @@ def generate_launch_description():
 
     # robot_self_filter: strips the robot's own body from the BEV lidar cloud
     # (/lidar/points -> /lidar/points_self_filtered, still in the Gazebo sensor
-    # frame) so rl_sim only rasterizes terrain. go2-specific; disable with
-    # bev_lidar:=false for robots without the lidar. The filter config (link names)
-    # lives in the go2_description package.
+    # frame) so rl_sim only rasterizes terrain. go2-specific; enabled with
+    # bev_lidar:=true, which also adds the Gazebo ray sensor via the xacro arg.
+    # The filter config (link names) lives in the go2_description package.
     self_filter_config = os.path.join(
         get_package_share_directory("go2_description"), "config", "self_filter.yaml"
     )
@@ -169,8 +175,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "bev_lidar",
-            description="Run the BEV lidar self-filter node (go2 only)",
-            default_value="true",
+            description="Simulate the BEV lidar (Gazebo ray sensor + self-filter pipeline)",
+            default_value="false",
         ),
         DeclareLaunchArgument(
             "gui",
