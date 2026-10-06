@@ -91,7 +91,20 @@ std::vector<float> RL::ComputeObservation()
         }
         else if (observation == "commands")
         {
-            obs_list.push_back(this->obs.commands * this->params.Get<std::vector<float>>("commands_scale"));
+            std::vector<float> commands = this->obs.commands;
+            // Optional cap on lateral (centripetal) acceleration |v| * |wz| for policies trained under it:
+            // the yaw rate is clamped so the commanded speed is kept. No-op unless the config sets it.
+            const float max_lateral_accel = this->params.Get<float>("max_lateral_accel", 0.0f);
+            if (max_lateral_accel > 0.0f && commands.size() >= 3)
+            {
+                const float speed = std::hypot(commands[0], commands[1]);
+                if (speed > 0.0f)
+                {
+                    const float max_yaw = max_lateral_accel / speed;
+                    commands[2] = std::clamp(commands[2], -max_yaw, max_yaw);
+                }
+            }
+            obs_list.push_back(commands * this->params.Get<std::vector<float>>("commands_scale"));
         }
         else if (observation == "height_cmd")
         {

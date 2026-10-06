@@ -1,0 +1,60 @@
+# Copyright (c) 2024-2025 Ziqi Fan
+# SPDX-License-Identifier: Apache-2.0
+
+go2/dreamwaq_speedy_gait_emerge:
+  # Experimental: model_5999 of Isaac-Velocity-Rough-Go2-DreamWAQ-Speedy-Gait-Emerge-v0 (exported by
+  # scripts/rsl_rl/export_dwaq_rlsar.py). Deterministic CENet codes; per-term obs clipping (ang_vel, joint vel)
+  # is baked into the model.
+  model_name: "dreamwaq_speedy_gait_emerge_v0.pt"
+  # Trained with commands limited to 4 m/s^2 lateral acceleration: |wz| is clamped to max_lateral_accel / |v|
+  # (v = commanded vx, vy) before it reaches the policy, for joystick and navigation cmd_vel alike.
+  max_lateral_accel: 4.0
+  transition_duration: 2.0
+  num_observations: 45
+  observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions"] #, "height_scan"]
+  observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
+  observations_history_priority: "term"  # "time" or "term" priority
+  clip_obs: 100.0
+  clip_actions_lower: [-100, -100, -100, -100,
+                       -100, -100, -100, -100,
+                       -100, -100, -100, -100]
+  clip_actions_upper: [100, 100, 100, 100,
+                       100, 100, 100, 100,
+                       100, 100, 100, 100]
+  rl_kp: [25, 25, 25, 25,
+          25, 25, 25, 25,
+          25, 25, 25, 25]
+  rl_kd: [0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5,
+          0.5, 0.5, 0.5, 0.5]
+  fixed_kp: [60, 60, 60, 60,
+             60, 60, 60, 60,
+             60, 60, 60, 60]
+  fixed_kd: [5, 5, 5, 5,
+             5, 5, 5, 5,
+             5, 5, 5, 5]
+  num_of_dofs: 12
+  action_scale: [0.125, 0.125, 0.125, 0.125,
+                 0.25, 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25, 0.25]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 1.0
+  dof_pos_scale: 1.0
+  dof_vel_scale: 1.0
+  commands_scale: [1.0, 1.0, 1.0]
+#   joystick_scale: [1.0, 1.0, 1.0, 1.0]
+  joystick_scale: [1.5, 3.5, 2.5, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
+  torque_limits: [23.7, 23.7, 23.7, 23.7,
+                  23.7, 23.7, 23.7, 23.7,
+                  45.43, 45.43, 45.43, 45.43]
+  default_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                    0.8000,  0.8000,  1.0000,  1.0000,
+                    -1.5000, -1.5000, -1.5000, -1.5000]
+  init_dof_pos: [0.1000, -0.1000,  0.1000, -0.1000,
+                 0.8000,  0.8000,  1.0000,  1.0000,
+                 -1.5000, -1.5000, -1.5000, -1.5000]
+#   joint_mapping: [3, 0, 9, 6, 4, 1, 10, 7, 5, 2, 11, 8]
+  explicit_joint_names: ["FL_hip_joint",   "FR_hip_joint",   "RL_hip_joint",   "RR_hip_joint",
+                         "FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint",
+                         "FL_calf_joint",  "FR_calf_joint",  "RL_calf_joint",  "RR_calf_joint"]

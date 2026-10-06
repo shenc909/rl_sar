@@ -137,6 +137,10 @@ public:
             {
                 return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
             }
+            if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            {
+                return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
+            }
         }
         return state_name_;
     }
@@ -150,7 +154,8 @@ public:
                                 || target == "RLFSMStateRLLocomotion_DreamwaqSpeedy"
                                 || target == "RLFSMStateRLLocomotion_DreamwaqBlind"
                                 || target == "RLFSMStateRLLocomotion_DreamwaqBevDirect"
-                                || target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+                                || target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd"
+                                || target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         if (target == "RLFSMStateGetDown" || is_locomotion)
         {
             if (percent_getup < 1.0f)
@@ -223,6 +228,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
         if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
             return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -231,7 +238,8 @@ public:
         if (target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBlind" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
         {
             return {true, ""};
         }
@@ -257,6 +265,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
         if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
             return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -265,7 +275,8 @@ public:
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBlind" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
         {
             return {true, ""};
         }
@@ -291,6 +302,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
         if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
             return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -299,7 +312,8 @@ public:
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
             target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
         {
             return {true, ""};
         }
@@ -325,6 +339,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
         if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
             return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -333,7 +349,8 @@ public:
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
             target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
         {
             return {true, ""};
         }
@@ -359,6 +376,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBlind";
         if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
             return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -367,7 +386,8 @@ public:
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
             target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBlind" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
         {
             return {true, ""};
         }
@@ -393,6 +413,8 @@ public:
             return "RLFSMStateRLLocomotion_DreamwaqBlind";
         if (rl.control.current_keyboard == Input::Keyboard::Num4 || rl.control.current_gamepad == Input::Gamepad::RB_DPadLeft)
             return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
@@ -401,7 +423,45 @@ public:
         if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
             target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
             target == "RLFSMStateRLLocomotion_DreamwaqBlind" ||
-            target == "RLFSMStateRLLocomotion_DreamwaqBevDirect")
+            target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
+        {
+            return {true, ""};
+        }
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge",
+            "dreamwaq_speedy_gait_emerge") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+        if (rl.control.current_keyboard == Input::Keyboard::Num3 || rl.control.current_gamepad == Input::Gamepad::RB_DPadDown)
+            return "RLFSMStateRLLocomotion_DreamwaqBlind";
+        if (rl.control.current_keyboard == Input::Keyboard::Num4 || rl.control.current_gamepad == Input::Gamepad::RB_DPadLeft)
+            return "RLFSMStateRLLocomotion_DreamwaqBevDirect";
+        if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
+            return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqBlind" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqBevDirect" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
         {
             return {true, ""};
         }
@@ -436,6 +496,8 @@ public:
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqBevDirect>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
             return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqHeightCmd>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge")
+            return std::make_shared<go2_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge>(rl);
         return nullptr;
     }
     std::string GetType() const override { return "go2"; }
@@ -450,7 +512,8 @@ public:
             "RLFSMStateRLLocomotion_HimLoco",
             "RLFSMStateRLLocomotion_DreamwaqBlind",
             "RLFSMStateRLLocomotion_DreamwaqBevDirect",
-            "RLFSMStateRLLocomotion_DreamwaqHeightCmd"
+            "RLFSMStateRLLocomotion_DreamwaqHeightCmd",
+            "RLFSMStateRLLocomotion_DreamwaqSpeedyGaitEmerge"
         };
     }
     std::string GetInitialState() const override { return initial_state_; }
