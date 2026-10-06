@@ -381,7 +381,7 @@ public:
     RLFSMStateRLLocomotion_DreamwaqHeightCmd(RL *rl)
         : RLFSMStateRLLocomotion(rl,
             "RLFSMStateRLLocomotion_DreamwaqHeightCmd",
-            "dreamwaq_heightcmd") {}
+            "dreamwaq_speedy_heightcmd") {}
 
     std::string CheckChange() override
     {
