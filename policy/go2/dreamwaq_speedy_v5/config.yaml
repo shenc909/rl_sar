@@ -1,22 +1,22 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
 
-go2/dreamwaq_speedy:
-  model_name: "dreamwaq_speedy.pt"
+go2/dreamwaq_speedy_v5:
+  # speedy v5: model_13300 of Isaac-Velocity-Rough-Go2-DreamWAQ-Speedy-v5 (exported by scripts/rsl_rl/export_dwaq_rlsar.py).
+  # Deterministic CENet codes; per-term obs clipping (ang_vel, joint vel) is baked into the model.
+  model_name: "dreamwaq_speedy_v5.pt"
   transition_duration: 2.0
   num_observations: 45
   observations: ["commands", "ang_vel", "gravity_vec", "dof_pos", "dof_vel", "actions"] #, "height_scan"]
   observations_history: [5, 4, 3, 2, 1, 0]  # 0 is the latest observation
   observations_history_priority: "term"  # "time" or "term" priority
   clip_obs: 100.0
-  clip_actions_lower: [-10, -10, -10,
-                       -10, -10, -10,
-                       -10, -10, -10,
-                       -10, -10, -10]
-  clip_actions_upper: [10, 10, 10,
-                       10, 10, 10,
-                       10, 10, 10,
-                       10, 10, 10]
+  clip_actions_lower: [-100, -100, -100, -100,
+                       -100, -100, -100, -100,
+                       -100, -100, -100, -100]
+  clip_actions_upper: [100, 100, 100, 100,
+                       100, 100, 100, 100,
+                       100, 100, 100, 100]
   rl_kp: [25, 25, 25, 25,
           25, 25, 25, 25,
           25, 25, 25, 25]
@@ -39,7 +39,8 @@ go2/dreamwaq_speedy:
   dof_pos_scale: 1.0
   dof_vel_scale: 1.0
   commands_scale: [1.0, 1.0, 1.0]
-  joystick_scale: [1.0, 1.0, 1.0, 1.0] #[1.5, 2.0, 2.0, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
+  joystick_scale: [1.0, 1.0, 1.0, 1.0]
+  # joystick_scale: [1.5, 2.5, 2.5, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
   torque_limits: [23.5, 23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5, 23.5,
                   23.5, 23.5, 23.5, 23.5]
