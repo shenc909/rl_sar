@@ -42,11 +42,11 @@ go2/dreamwaq_speedy_heightcmd:
   dof_vel_scale: 1.0
   commands_scale: [1.0, 1.0, 1.0]
   # Base-height command: offset [m] from the trained neutral height (0.33 m); trained on U(-0.20, 0.07).
-  # Floor at -0.15 for deployment: the chin touches the ground at -0.20.
+  # Floor at the trained minimum (-0.20); note the chin touches the ground there.
   # Joystick RY integrates it (full stick = height_cmd_rate m/s, held on release); in navigation mode the
   # cmd_height topic (std_msgs/Float32) sets it directly. Both are clamped to height_cmd_range.
   height_cmd_default: 0.0
-  height_cmd_range: [-0.15, 0.07]
+  height_cmd_range: [-0.20, 0.07]
   height_cmd_rate: 0.2
   height_cmd_deadzone: 0.1
   height_cmd_key_step: 0.05  # rl_sim keyboard: Up/Down arrow step per press [m]; Space re-centres
