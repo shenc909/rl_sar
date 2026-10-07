@@ -5,7 +5,7 @@ go2/dreamwaq_speedy_gait_emerge:
   # Experimental: model_5999 of Isaac-Velocity-Rough-Go2-DreamWAQ-Speedy-Gait-Emerge-v0 (exported by
   # scripts/rsl_rl/export_dwaq_rlsar.py). Deterministic CENet codes; per-term obs clipping (ang_vel, joint vel)
   # is baked into the model.
-  model_name: "dreamwaq_speedy_gait_emerge_v0.pt"
+  model_name: "dreamwaq_speedy_gait_emerge_v1.pt"
   # Trained with commands limited to 4 m/s^2 lateral acceleration: |wz| is clamped to max_lateral_accel / |v|
   # (v = commanded vx, vy) before it reaches the policy, for joystick and navigation cmd_vel alike.
   max_lateral_accel: 4.0
@@ -44,7 +44,7 @@ go2/dreamwaq_speedy_gait_emerge:
   dof_vel_scale: 1.0
   commands_scale: [1.0, 1.0, 1.0]
 #   joystick_scale: [1.0, 1.0, 1.0, 1.0]
-  joystick_scale: [1.5, 3.5, 2.5, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
+  joystick_scale: [1.5, 4.5, 2.5, 1.0]  # [LX, LY, RX, RY] — applied to raw stick values before being fed as commands
   torque_limits: [23.7, 23.7, 23.7, 23.7,
                   23.7, 23.7, 23.7, 23.7,
                   45.43, 45.43, 45.43, 45.43]
