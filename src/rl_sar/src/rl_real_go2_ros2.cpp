@@ -9,6 +9,8 @@
 #include <atomic>
 #include <csignal>
 #include <cstring>
+#include <sys/resource.h>
+#include <sys/syscall.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -148,6 +150,11 @@ RL_Real::RL_Real(int argc, char **argv)
         this->fsm_state_publisher->publish(initial_msg);
     }
 
+    // Policy velocity-estimate debug publisher (only fed by models that append it).
+    this->est_vel_publisher = ros2_node->create_publisher<geometry_msgs::msg::TwistStamped>(
+        "/go2_1/policy/est_vel", rclcpp::SystemDefaultsQoS());
+    this->est_vel_thread = std::thread(&RL_Real::EstVelPublishLoop, this);
+
 
     // Shut down motion control-related service
     while(this->QueryMotionStatus())
@@ -193,6 +200,12 @@ RL_Real::~RL_Real()
 #ifdef PLOT
     this->loop_plot->shutdown();
 #endif
+    {
+        std::lock_guard<std::mutex> lock(this->est_vel_mutex);
+        this->est_vel_stop = true;
+    }
+    this->est_vel_cv.notify_one();
+    if (this->est_vel_thread.joinable()) this->est_vel_thread.join();
     std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
 }
 
@@ -460,16 +473,31 @@ std::vector<float> RL_Real::Forward()
 
     std::vector<float> clamped_obs = this->ComputeObservation();
 
-    std::vector<float> actions;
+    std::vector<float> raw;
     if (!this->params.Get<std::vector<int>>("observations_history").empty())
     {
         this->history_obs_buf.insert(clamped_obs);
         this->history_obs = this->history_obs_buf.get_obs_vec(this->params.Get<std::vector<int>>("observations_history"));
-        actions = this->model->forward({this->history_obs});
+        raw = this->model->forward({this->history_obs});
     }
     else
     {
-        actions = this->model->forward({clamped_obs});
+        raw = this->model->forward({clamped_obs});
+    }
+
+    // Debug models append extra outputs after the actions. Strip them here: obs.actions
+    // is fed back as the "actions" observation, so it must stay num_of_dofs long.
+    const size_t num_dofs = this->params.Get<int>("num_of_dofs");
+    std::vector<float> actions(raw.begin(), raw.begin() + std::min(num_dofs, raw.size()));
+    if (raw.size() >= num_dofs + 3)
+    {
+        {
+            std::lock_guard<std::mutex> lock(this->est_vel_mutex);
+            this->est_vel = {raw[num_dofs], raw[num_dofs + 1], raw[num_dofs + 2]};
+            this->est_vel_stamp = ros2_node->now();
+            this->est_vel_pending = true;
+        }
+        this->est_vel_cv.notify_one();
     }
 
     if (!this->params.Get<std::vector<float>>("clip_actions_upper").empty() && !this->params.Get<std::vector<float>>("clip_actions_lower").empty())
@@ -479,6 +507,31 @@ std::vector<float> RL_Real::Forward()
     else
     {
         return actions;
+    }
+}
+
+void RL_Real::EstVelPublishLoop()
+{
+    // Deprioritise relative to the RL/control loops (per-thread nice on Linux).
+    setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), 10);
+
+    geometry_msgs::msg::TwistStamped msg;
+    msg.header.frame_id = "base";
+    std::unique_lock<std::mutex> lock(this->est_vel_mutex);
+    while (true)
+    {
+        this->est_vel_cv.wait(lock, [this] { return this->est_vel_pending || this->est_vel_stop; });
+        if (this->est_vel_stop) break;
+        this->est_vel_pending = false;
+        msg.header.stamp = this->est_vel_stamp;
+        msg.twist.linear.x = this->est_vel[0];
+        msg.twist.linear.y = this->est_vel[1];
+        msg.twist.linear.z = this->est_vel[2];
+
+        // Publish outside the lock so Forward() never waits on serialisation.
+        lock.unlock();
+        this->est_vel_publisher->publish(msg);
+        lock.lock();
     }
 }
 

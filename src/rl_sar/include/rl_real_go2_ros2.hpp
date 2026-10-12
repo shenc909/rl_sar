@@ -22,12 +22,16 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
+#include <array>
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
+#include <thread>
 
 #include "bev_rasterizer.hpp"
 
@@ -155,6 +159,19 @@ private:
     sensor_msgs::msg::PointCloud2::SharedPtr latest_cloud;
     std::mutex lidar_mutex;
     void LidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+    // Velocity-estimator debug output (models exported with append_vel_est put
+    // [vx, vy, vz] after the actions). Forward() only stashes the latest value; a
+    // low-priority thread does the ROS publish so it never runs on the RL loop.
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr est_vel_publisher;
+    std::thread est_vel_thread;
+    std::mutex est_vel_mutex;
+    std::condition_variable est_vel_cv;
+    std::array<float, 3> est_vel{};
+    rclcpp::Time est_vel_stamp;
+    bool est_vel_pending = false;
+    bool est_vel_stop = false;
+    void EstVelPublishLoop();
 
     rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
     rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
