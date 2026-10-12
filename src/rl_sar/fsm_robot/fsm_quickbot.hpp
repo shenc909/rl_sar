@@ -125,6 +125,14 @@ public:
             {
                 return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
             }
+            if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
+            {
+                return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+            }
+            if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            {
+                return "RLFSMStateRLLocomotion_DreamwaqSpeedyV5";
+            }
         }
         return state_name_;
     }
@@ -135,7 +143,9 @@ public:
             return {true, ""};
 
         const bool is_locomotion = target == "RLFSMStateRLLocomotion_Dreamwaq"
-                                || target == "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+                                || target == "RLFSMStateRLLocomotion_DreamwaqSpeedy"
+                                || target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd"
+                                || target == "RLFSMStateRLLocomotion_DreamwaqSpeedyV5";
         if (target == "RLFSMStateGetDown" || is_locomotion)
         {
             if (percent_getup < 1.0f)
@@ -202,12 +212,18 @@ public:
     {
         if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
             return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+        if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
+            return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyV5";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
-        if (target == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
+        if (target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyV5")
         {
             return {true, ""};
         }
@@ -227,12 +243,80 @@ public:
     {
         if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
             return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
+            return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyV5";
         return RLFSMStateRLLocomotion::CheckChange();
     }
 
     ChangeDecision CanTransitionTo(const std::string& target) const override
     {
-        if (target == "RLFSMStateRLLocomotion_Dreamwaq")
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyV5")
+        {
+            return {true, ""};
+        }
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_DreamwaqHeightCmd : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_DreamwaqHeightCmd(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_DreamwaqHeightCmd",
+            "dreamwaq_speedy_heightcmd") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+        if (rl.control.current_keyboard == Input::Keyboard::Num8 || rl.control.current_gamepad == Input::Gamepad::LB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedyV5";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedyV5")
+        {
+            return {true, ""};
+        }
+        return RLFSMStateRLLocomotion::CanTransitionTo(target);
+    }
+};
+
+class RLFSMStateRLLocomotion_DreamwaqSpeedyV5 : public RLFSMStateRLLocomotion
+{
+public:
+    RLFSMStateRLLocomotion_DreamwaqSpeedyV5(RL *rl)
+        : RLFSMStateRLLocomotion(rl,
+            "RLFSMStateRLLocomotion_DreamwaqSpeedyV5",
+            "dreamwaq_speedy_v5") {}
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            return "RLFSMStateRLLocomotion_Dreamwaq";
+        if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            return "RLFSMStateRLLocomotion_DreamwaqSpeedy";
+        if (rl.control.current_keyboard == Input::Keyboard::Num5 || rl.control.current_gamepad == Input::Gamepad::LB_DPadUp)
+            return "RLFSMStateRLLocomotion_DreamwaqHeightCmd";
+        return RLFSMStateRLLocomotion::CheckChange();
+    }
+
+    ChangeDecision CanTransitionTo(const std::string& target) const override
+    {
+        if (target == "RLFSMStateRLLocomotion_Dreamwaq" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqSpeedy" ||
+            target == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
         {
             return {true, ""};
         }
@@ -259,6 +343,10 @@ public:
             return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_Dreamwaq>(rl);
         else if (state_name == "RLFSMStateRLLocomotion_DreamwaqSpeedy")
             return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedy>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_DreamwaqHeightCmd")
+            return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_DreamwaqHeightCmd>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion_DreamwaqSpeedyV5")
+            return std::make_shared<quickbot_fsm::RLFSMStateRLLocomotion_DreamwaqSpeedyV5>(rl);
         return nullptr;
     }
     std::string GetType() const override { return "quickbot"; }
@@ -269,7 +357,9 @@ public:
             "RLFSMStateGetUp",
             "RLFSMStateGetDown",
             "RLFSMStateRLLocomotion_Dreamwaq",
-            "RLFSMStateRLLocomotion_DreamwaqSpeedy"
+            "RLFSMStateRLLocomotion_DreamwaqSpeedy",
+            "RLFSMStateRLLocomotion_DreamwaqHeightCmd",
+            "RLFSMStateRLLocomotion_DreamwaqSpeedyV5"
         };
     }
     std::string GetInitialState() const override { return initial_state_; }

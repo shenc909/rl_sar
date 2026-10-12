@@ -72,6 +72,12 @@ RL_Real::RL_Real(int argc, char **argv)
         [this] (const geometry_msgs::msg::Twist::SharedPtr msg) {this->CmdvelCallback(msg);}
     );
 
+    // height command subscriber (only consumed by configs with a "height_cmd" observation)
+    this->cmd_height_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32>(
+        TOPIC_CMD_HEIGHT, rclcpp::SystemDefaultsQoS(),
+        [this] (const std_msgs::msg::Float32::SharedPtr msg) {this->CmdHeightCallback(msg);}
+    );
+
     // height_scan subscriber
     this->height_scan_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32MultiArray>(
         TOPIC_HEIGHT_SCAN, rclcpp::SystemDefaultsQoS(),
@@ -265,16 +271,37 @@ void RL_Real::RunModel()
                 this->obs.commands = {0.0f, 0.0f, 0.0f};
                 RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 5000, "cmd_vel data stale, setting to zero!");
             }
+
+            // Height is a setpoint, not a rate: hold the last received value rather than timing out.
+            // Writing it into control.height keeps the joystick bumpless when leaving navigation mode.
+            if (this->cmd_height_received.load())
+            {
+                this->SetHeightCommand(this->cmd_height.load());
+            }
         }
+        else
+        {
+            // RY recenters, so it drives the rate of change of the held height setpoint.
+            this->UpdateHeightCommand(this->joy_ry.load(), this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+        }
+        this->obs.height_cmd = {this->control.height};
 
         this->obs.base_quat = this->robot_state.imu.quaternion;
         this->obs.dof_pos = this->robot_state.motor_state.q;
         this->obs.dof_vel = this->robot_state.motor_state.dq;
 
-        this->obs.height_scan = this->height_scan_obs;
-        double height_scan_time_diff = ros2_node->now().seconds() - this->last_height_scan_time;
-        if (height_scan_time_diff > 0.2) {
-            RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 1000, "Height map data stale, rate < 5Hz! Staleness: %f s", height_scan_time_diff);
+        if (this->params.Get<std::string>("height_scan_source") == "constant")
+        {
+            // Policy trained on a constant height map (or blind): feed the configured fill, ignore the elevation topic.
+            this->obs.height_scan = this->MakeHeightScanFill();
+        }
+        else
+        {
+            this->obs.height_scan = this->height_scan_obs;
+            double height_scan_time_diff = ros2_node->now().seconds() - this->last_height_scan_time;
+            if (height_scan_time_diff > 0.2) {
+                RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 1000, "Height map data stale, rate < 5Hz! Staleness: %f s", height_scan_time_diff);
+            }
         }
 
         this->obs.actions = this->Forward();
@@ -385,9 +412,10 @@ void RL_Real::JoyCallback(
     // |__ buttons[]: estop=0 (NO TOUCH, handled at lower level),
     //                2-pole nav mode toggle=1 (0=off, 1=on),
     //                right 3-pole fsm_state=2 (0=GetDown, 1=GetUp, 2=Locomotion),
-    //                left 3-pole policy selector=3 (0=none, 1=Dreamwaq, 2=DreamwaqSpeedy; consulted only when btn(2)==2),
+    //                left 3-pole policy selector=3 (0=DreamwaqSpeedyV5 [default], 1=DreamwaqHeightCmd, 2=Dreamwaq (hm_constant);
+    //                                               consulted only when btn(2)==2),
     //                back momentary btn=4 (no-op for now)
-    // |__ axes[]:    Lx=3, Ly=2, Rx=0, Ry=1
+    // |__ axes[]:    Lx=3, Ly=2, Rx=0, Ry=1 (Ry drives the height command for height_cmd policies)
     // Bounds-checked accessors so a controller with fewer axes/buttons can't OOB-index.
     auto btn_val = [&](size_t i) { return i < this->joy_msg.buttons.size() ? this->joy_msg.buttons[i] : 0; };
     auto axis    = [&](size_t i) { return i < this->joy_msg.axes.size() ? this->joy_msg.axes[i] : 0.0f; };
@@ -407,6 +435,7 @@ void RL_Real::JoyCallback(
         }
         this->estop_engaged_prev = true;
         this->joy_armed = false;
+        this->joy_ry.store(0.0f);
         this->control.navigation_mode = false;
         this->fsm.RequestStateChange("RLFSMStatePassive");
         return;
@@ -415,7 +444,7 @@ void RL_Real::JoyCallback(
 
     // Startup safety interlock: ignore all controller commands (holding the FSM
     // in Passive) until the controller is first observed in the neutral/safe
-    // start state — nav mode off, fsm switch at GetDown, policy selector at none.
+    // start state — nav mode off, fsm switch at GetDown, policy selector at position 0.
     // This prevents the robot from leaving Passive if the program starts with a
     // switch left in an active position. Latched once, it stays armed for the
     // remainder of the session.
@@ -425,8 +454,9 @@ void RL_Real::JoyCallback(
         if (!safe_start)
         {
             RCLCPP_WARN_THROTTLE(ros2_node->get_logger(), *ros2_node->get_clock(), 2000,
-                "Controller not in neutral start state (nav off, fsm GetDown, policy none); "
+                "Controller not in neutral start state (nav off, fsm GetDown, policy selector 0); "
                 "ignoring inputs and holding Passive.");
+            this->joy_ry.store(0.0f);
             return;
         }
         this->joy_armed = true;
@@ -445,9 +475,9 @@ void RL_Real::JoyCallback(
     case  1:
         switch (btn_val(3))
         {
-        case -1: this->control.SetGamepad(Input::Gamepad::A); break;            // no-policy fallback → GetUp
-        case  0: this->control.SetGamepad(Input::Gamepad::RB_DPadUp); break;    // → Dreamwaq
-        case  1: this->control.SetGamepad(Input::Gamepad::RB_DPadRight); break; // → DreamwaqSpeedy
+        case -1: this->control.SetGamepad(Input::Gamepad::LB_DPadRight); break; // → DreamwaqSpeedyV5 (default)
+        case  0: this->control.SetGamepad(Input::Gamepad::LB_DPadUp); break;    // → DreamwaqHeightCmd
+        case  1: this->control.SetGamepad(Input::Gamepad::RB_DPadUp); break;    // → Dreamwaq (dreamwaq_hm_constant)
         }
         break;
     }
@@ -462,6 +492,8 @@ void RL_Real::JoyCallback(
     this->control.x = axis(2) * joystick_scale[1];   // LY
     this->control.y = -axis(3) * joystick_scale[0];   // LX
     this->control.yaw = -axis(0) * joystick_scale[2]; // RX
+    // RY is not scaled: it is a rate input to UpdateHeightCommand (full stick = height_cmd_rate m/s).
+    this->joy_ry.store(axis(1));                      // RY
 }
 
 void RL_Real::CmdvelCallback(
@@ -470,6 +502,14 @@ void RL_Real::CmdvelCallback(
 {
     this->cmd_vel = *msg;
     this->last_cmd_vel_time = ros2_node->now().seconds();
+}
+
+void RL_Real::CmdHeightCallback(
+    const std_msgs::msg::Float32::SharedPtr msg
+)
+{
+    this->cmd_height.store(msg->data);
+    this->cmd_height_received.store(true);
 }
 
 void RL_Real::HeightScanCallback(

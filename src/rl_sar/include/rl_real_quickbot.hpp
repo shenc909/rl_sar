@@ -16,11 +16,13 @@
 #include "loop.hpp"
 #include "fsm_quickbot.hpp"
 
+#include <atomic>
 #include <csignal>
 #include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/joy.hpp>
@@ -40,6 +42,7 @@ namespace plt = matplotlibcpp;
 #define TOPIC_IMU "/xsens/imu/data"
 #define TOPIC_JOY "/interface/joy"
 #define TOPIC_CMD_VEL "/cmd_vel"
+#define TOPIC_CMD_HEIGHT "/cmd_height"
 #define TOPIC_HEIGHT_SCAN "/local_elevation_array"
 #define TOPIC_JOINT_COMMAND "/interface/motor_setpoints"
 
@@ -92,6 +95,9 @@ private:
     // Tracks the previous estop (buttons[0]) level so engagement is logged once
     // on the rising edge while still being enforced every tick.
     bool estop_engaged_prev = false;
+    // Latest RY deflection, written by JoyCallback (executor thread) and consumed by RunModel
+    // (loop_rl thread) to rate-integrate control.height. Zeroed while e-stopped / disarmed.
+    std::atomic<float> joy_ry{0.0f};
 
     // joystick_scale lives in per-policy config.yaml. JoyCallback runs on the ROS
     // executor thread, while config switches rebuild params.config_node on the
@@ -114,6 +120,11 @@ private:
     geometry_msgs::msg::Twist cmd_vel;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    // Height command topic (navigation mode only): passed straight to the policy, no integration.
+    std::atomic<float> cmd_height{0.0f};
+    std::atomic<bool> cmd_height_received{false};
+    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr cmd_height_subscriber;
+    void CmdHeightCallback(const std_msgs::msg::Float32::SharedPtr msg);
     std_msgs::msg::Float32MultiArray height_scan;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr height_scan_subscriber;
     void HeightScanCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
