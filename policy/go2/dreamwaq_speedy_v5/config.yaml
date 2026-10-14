@@ -8,8 +8,8 @@ go2/dreamwaq_speedy_v5:
   transition_duration: 2.0
   # Command shaping (command_shaper.hpp), all optional, axes [vx, vy, wz]. Example values, untuned:
   # command_deadband: [0.05, 0.05, 0.1]          # |cmd| below this -> 0
-  command_max_accel: [3.0, 1.0, 3.0]           # m/s^2, m/s^2, rad/s^2; <= 0 = unlimited on that axis
-  command_max_decel: [2.0, 1.0, 6.0]           # while slowing / reversing; defaults to command_max_accel
+  command_max_accel: [2.5, 3.0, 6.0]           # m/s^2, m/s^2, rad/s^2; <= 0 = unlimited on that axis
+  command_max_decel: [2.5, 3.0, 6.0]           # while slowing / reversing; defaults to command_max_accel
   # vx map: [desired, commanded]. Points within ±1.0 m/s are inverted from the 2026-10-08 real-robot step tests
   # (speedyv5 rows of sim2real_summary.csv). The ±2.5 points extrapolate the least-squares fits over 0.5-1.0 m/s
   # (fwd cmd = 1.118 v + 0.048, back 1.082 v + 0.049); nothing above 1.0 m/s was measured.
@@ -19,8 +19,8 @@ go2/dreamwaq_speedy_v5:
   # barely moved (a dead zone), and inverting it would blow small commands up. The wz ±0.5 points are approximate
   # (worst repeatability), and the ±2.5 points flatten the map because the robot over-spins there.
   # command_tracking_map_vy: [[-0.50, -0.6], [-0.30, -0.4], [0.29, 0.4], [0.51, 0.6]]
-  command_tracking_map_wz: [[-2.94, -2.5], [-1.78, -2.0], [-1.38, -1.5], [-0.90, -1.0], [-0.27, -0.5],
-                            [0.32, 0.5], [0.91, 1.0], [1.38, 1.5], [1.77, 2.0], [2.68, 2.5]]
+  command_tracking_map_wz: [[-2.94, -2.5], [-2.09, -2.31], [-1.78, -2.0], [-1.38, -1.5], [-0.90, -1.0], [-0.27, -0.5],
+                            [0.32, 0.5], [0.91, 1.0], [1.38, 1.5], [1.77, 2.0], [2.24, 2.40], [2.68, 2.5]]
   command_range_lower: [-2.0, -1.5, -2.5]      # set to the policy's training command ranges
   command_range_upper: [3.2, 1.5, 2.5]
   num_observations: 45
