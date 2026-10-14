@@ -110,6 +110,10 @@ public:
                       << " y:" << rl.control.y << " yaw:" << rl.control.yaw;
             if (rl.params.Has("height_cmd_range"))
                 std::cout << " height:" << rl.control.height;
+            // What the policy actually sees after deadband / rate limit / tracking map / clamps.
+            const auto& shaped = rl.command_shaper.Output();
+            if (rl.command_shaper.Active() && shaped.size() >= 3)
+                std::cout << " -> policy x:" << shaped[0] << " y:" << shaped[1] << " yaw:" << shaped[2];
             std::cout << std::endl;
         }
     }

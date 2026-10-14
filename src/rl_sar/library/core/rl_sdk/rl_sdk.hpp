@@ -25,6 +25,7 @@
 #include "inference_runtime.hpp"
 #include "logger.hpp"
 #include "motion_loader.hpp"
+#include "command_shaper.hpp"
 
 template <typename T>
 struct RobotCommand
@@ -255,6 +256,11 @@ public:
     // Both clamp to "height_cmd_range".
     void UpdateHeightCommand(float stick, float dt);
     void SetHeightCommand(float value);
+    // Velocity command preprocessing between obs.commands and the "commands" observation (see
+    // command_shaper.hpp). Configured from the "command_*" / "max_lateral_accel" config keys and reset
+    // on every policy load, so each policy entry starts the rate limiter from rest.
+    CommandShaper command_shaper;
+    void ConfigureCommandShaper();
 
     // history buffer
     ObservationBuffer history_obs_buf;

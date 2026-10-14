@@ -91,19 +91,10 @@ std::vector<float> RL::ComputeObservation()
         }
         else if (observation == "commands")
         {
-            std::vector<float> commands = this->obs.commands;
-            // Optional cap on lateral (centripetal) acceleration |v| * |wz| for policies trained under it:
-            // the yaw rate is clamped so the commanded speed is kept. No-op unless the config sets it.
-            const float max_lateral_accel = this->params.Get<float>("max_lateral_accel", 0.0f);
-            if (max_lateral_accel > 0.0f && commands.size() >= 3)
-            {
-                const float speed = std::hypot(commands[0], commands[1]);
-                if (speed > 0.0f)
-                {
-                    const float max_yaw = max_lateral_accel / speed;
-                    commands[2] = std::clamp(commands[2], -max_yaw, max_yaw);
-                }
-            }
+            // Deadband / rate limit / tracking map / range clamp / lateral-accel cap; each stage is a no-op
+            // unless the config sets it. Advances the rate limiter by one policy step.
+            const float policy_dt = this->params.Get<float>("dt") * this->params.Get<int>("decimation");
+            std::vector<float> commands = this->command_shaper.Step(this->obs.commands, policy_dt);
             obs_list.push_back(commands * this->params.Get<std::vector<float>>("commands_scale"));
         }
         else if (observation == "height_cmd")
@@ -217,7 +208,78 @@ void RL::InitObservations()
     this->obs.actions.clear();
     this->obs.actions.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
     this->obs.height_scan = this->MakeHeightScanFill();
+    this->ConfigureCommandShaper();
     this->ComputeObservation();
+}
+
+void RL::ConfigureCommandShaper()
+{
+    const size_t num_axes = this->obs.commands.size();
+    CommandShaper::Config config;
+    std::vector<std::string> problems;
+    auto per_axis = [&](const std::string& key) {
+        auto v = this->params.Get<std::vector<float>>(key);
+        if (!v.empty() && v.size() != num_axes)
+        {
+            problems.push_back(key + " needs " + std::to_string(num_axes) + " values");
+            v.clear();
+        }
+        return v;
+    };
+
+    config.deadband = per_axis("command_deadband");
+    config.max_accel = per_axis("command_max_accel");
+    config.max_decel = per_axis("command_max_decel");
+    if (!config.max_decel.empty() && config.max_accel.empty())
+    {
+        problems.push_back("command_max_decel has no effect without command_max_accel");
+    }
+
+    // One "command_tracking_map_<axis>" list of [desired, commanded] points per axis.
+    const std::vector<std::string> axis_names = {"vx", "vy", "wz"};
+    std::vector<CommandShaper::Curve> tracking_map(num_axes);
+    bool any_map = false;
+    for (size_t i = 0; i < num_axes && i < axis_names.size(); ++i)
+    {
+        const std::string key = "command_tracking_map_" + axis_names[i];
+        const auto points = this->params.Get<std::vector<std::vector<float>>>(key);
+        if (points.empty()) continue;
+        tracking_map[i] = CommandShaper::MakeCurve(points);
+        if (tracking_map[i].empty())
+        {
+            problems.push_back(key + " must be [desired, commanded] pairs with distinct desired values");
+            continue;
+        }
+        any_map = true;
+    }
+    if (any_map) config.tracking_map = tracking_map;
+
+    config.range_lower = per_axis("command_range_lower");
+    config.range_upper = per_axis("command_range_upper");
+    if (config.range_lower.empty() != config.range_upper.empty())
+    {
+        problems.push_back("command_range_lower and command_range_upper must be set together");
+        config.range_lower.clear();
+        config.range_upper.clear();
+    }
+    for (size_t i = 0; i < config.range_lower.size(); ++i)
+    {
+        if (config.range_lower[i] > config.range_upper[i])
+        {
+            problems.push_back("command_range_lower exceeds command_range_upper on axis " + std::to_string(i));
+            config.range_lower.clear();
+            config.range_upper.clear();
+            break;
+        }
+    }
+
+    config.max_lateral_accel = this->params.Get<float>("max_lateral_accel", 0.0f);
+
+    for (const auto& problem : problems)
+    {
+        std::cout << LOGGER::WARNING << "Command shaper: " << problem << "; stage disabled." << std::endl;
+    }
+    this->command_shaper.Configure(config, num_axes);
 }
 
 std::vector<float> RL::MakeHeightScanFill() const
