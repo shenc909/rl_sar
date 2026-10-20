@@ -28,6 +28,7 @@ def generate_launch_description():
             Command(["echo -n ", Command(["ros2 pkg prefix ", rname, "_description"])]),
             "/share/", rname, "_description/xacro/robot.xacro",
             " bev_lidar:=", LaunchConfiguration("bev_lidar"),
+            " nav_sensors:=", LaunchConfiguration("nav_sensors"),
         ]),
         value_type=str
     )
@@ -176,6 +177,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "bev_lidar",
             description="Simulate the BEV lidar (Gazebo ray sensor + self-filter pipeline)",
+            default_value="false",
+        ),
+        DeclareLaunchArgument(
+            "nav_sensors",
+            description="Add the MID360 lidar (/livox/lidar) and ground-truth odometry (/ground_truth/odom) "
+                        "used by the Nav2 bringup (go2 only, see go2_description/xacro/nav_sensors.xacro)",
             default_value="false",
         ),
         DeclareLaunchArgument(
