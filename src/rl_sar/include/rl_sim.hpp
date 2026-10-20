@@ -126,6 +126,11 @@ private:
     rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr param_client;
     rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
     rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
+    // JointStateTick() snapshot as sensor_msgs/JointState on <ns>rl_sar/joint_states at 100 Hz (its own topic, so
+    // it doesn't clash with Gazebo's or robot_state_publisher's /joint_states).
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher;
+    rclcpp::TimerBase::SharedPtr joint_state_timer;
+    void PublishJointState();
     void GazeboImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);

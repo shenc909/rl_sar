@@ -25,6 +25,7 @@
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -177,6 +178,11 @@ private:
 
     rclcpp::Service<robot_msgs::srv::SetFsmState>::SharedPtr fsm_set_state_service;
     rclcpp::Publisher<robot_msgs::msg::FsmState>::SharedPtr fsm_state_publisher;
+    // JointStateTick() snapshot as sensor_msgs/JointState on <ns>rl_sar/joint_states at 100 Hz (its own topic, so
+    // it doesn't clash with Gazebo's or robot_state_publisher's /joint_states).
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher;
+    rclcpp::TimerBase::SharedPtr joint_state_timer;
+    void PublishJointState();
 };
 
 #endif // RL_REAL_GO2_ROS2_HPP

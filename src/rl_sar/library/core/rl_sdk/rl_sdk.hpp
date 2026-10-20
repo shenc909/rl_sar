@@ -287,6 +287,16 @@ public:
     std::mutex app_joy_params_mutex;
     std::vector<float> app_joy_scale{1.0f, 1.0f, 1.0f, 1.0f};
     float app_joy_timeout = 0.5f;
+    // Joint state for publishing as sensor_msgs/JointState (e.g. for the Clara Control app's 3D view, via
+    // clara_relay, or robot_state_publisher). The control thread records it with JointStateTick() right after
+    // GetState(); any thread can read it with GetJointStateSnapshot(), in base.yaml joint_names order (the
+    // URDF's joint names). Returns false until the first tick or if base.yaml has no joint_names.
+    void JointStateTick();
+    bool GetJointStateSnapshot(std::vector<std::string> &names, std::vector<double> &position, std::vector<double> &velocity);
+    std::mutex joint_state_mutex;  // guards the three vectors below
+    std::vector<std::string> joint_state_names;
+    std::vector<double> joint_state_position;
+    std::vector<double> joint_state_velocity;
     // Velocity command preprocessing between obs.commands and the "commands" observation (see
     // command_shaper.hpp). Configured from the "command_*" / "max_lateral_accel" config keys and reset
     // on every policy load, so each policy entry starts the rate limiter from rest.

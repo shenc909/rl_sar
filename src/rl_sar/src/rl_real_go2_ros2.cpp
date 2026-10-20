@@ -108,6 +108,12 @@ RL_Real::RL_Real(int argc, char **argv)
             "/go2_1/fsm_state", latched_qos);
     }
 
+    // Joint positions for other nodes (e.g. clara_relay for the Clara Control app's 3D view).
+    this->joint_state_publisher = ros2_node->create_publisher<sensor_msgs::msg::JointState>(
+        "/go2_1/rl_sar/joint_states", rclcpp::QoS(10));
+    this->joint_state_timer = ros2_node->create_wall_timer(
+        std::chrono::milliseconds(10), [this] { this->PublishJointState(); });
+
     // FSM state-change service.
     this->fsm_set_state_service = ros2_node->create_service<robot_msgs::srv::SetFsmState>(
         "/go2_1/set_fsm_state",
@@ -357,10 +363,19 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
     lowcmd_publisher->publish(this->unitree_low_command);
 }
 
+void RL_Real::PublishJointState()
+{
+    sensor_msgs::msg::JointState msg;
+    if (!this->GetJointStateSnapshot(msg.name, msg.position, msg.velocity)) return;
+    msg.header.stamp = ros2_node->now();
+    this->joint_state_publisher->publish(msg);
+}
+
 void RL_Real::RobotControl()
 {
     this->AppJoyTick();
     this->GetState(&this->robot_state);
+    this->JointStateTick();
 
     this->StateController(&this->robot_state, &this->robot_command);
 

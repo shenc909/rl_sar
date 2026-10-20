@@ -793,6 +793,38 @@ void RL::AppJoyTick()
     }
 }
 
+void RL::JointStateTick()
+{
+    // physical_joint_names is fixed after ReadYaml; joint_mapping can change with a policy switch, which
+    // happens on this (the control) thread, so reading params here is safe.
+    if (this->physical_joint_names.empty()) return;
+    const auto joint_mapping = this->params.Get<std::vector<int>>("joint_mapping");
+    const size_t n = this->physical_joint_names.size();
+    std::vector<double> position(n, 0.0), velocity(n, 0.0);
+    // motor_state is in policy order: entry i is physical joint joint_mapping[i].
+    for (size_t i = 0; i < joint_mapping.size() && i < this->robot_state.motor_state.q.size(); ++i)
+    {
+        const int physical = joint_mapping[i];
+        if (physical < 0 || static_cast<size_t>(physical) >= n) continue;
+        position[physical] = this->robot_state.motor_state.q[i];
+        velocity[physical] = this->robot_state.motor_state.dq[i];
+    }
+    std::lock_guard<std::mutex> lock(this->joint_state_mutex);
+    if (this->joint_state_names.size() != n) this->joint_state_names = this->physical_joint_names;
+    this->joint_state_position.swap(position);
+    this->joint_state_velocity.swap(velocity);
+}
+
+bool RL::GetJointStateSnapshot(std::vector<std::string> &names, std::vector<double> &position, std::vector<double> &velocity)
+{
+    std::lock_guard<std::mutex> lock(this->joint_state_mutex);
+    if (this->joint_state_names.empty()) return false;
+    names = this->joint_state_names;
+    position = this->joint_state_position;
+    velocity = this->joint_state_velocity;
+    return true;
+}
+
 void RL::ReadYaml(const std::string& file_path, const std::string& file_name)
 {
     std::string config_path = std::string(POLICY_DIR) + "/" + file_path + "/" + file_name;

@@ -175,6 +175,11 @@ RL_Sim::RL_Sim(int argc, char **argv)
         this->fsm_state_publisher = ros2_node->create_publisher<robot_msgs::msg::FsmState>(
             this->ros_namespace + "fsm_state", latched_qos);
     }
+    // Joint positions for other nodes (e.g. clara_relay for the Clara Control app's 3D view).
+    this->joint_state_publisher = ros2_node->create_publisher<sensor_msgs::msg::JointState>(
+        this->ros_namespace + "rl_sar/joint_states", rclcpp::QoS(10));
+    this->joint_state_timer = ros2_node->create_wall_timer(
+        std::chrono::milliseconds(10), [this] { this->PublishJointState(); });
     this->fsm_set_state_service = ros2_node->create_service<robot_msgs::srv::SetFsmState>(
         this->ros_namespace + "set_fsm_state",
         [this] (const std::shared_ptr<robot_msgs::srv::SetFsmState::Request>  req,
@@ -394,10 +399,23 @@ void RL_Sim::SetCommand(const RobotCommand<float> *command)
 #endif
 }
 
+#if defined(USE_ROS2)
+void RL_Sim::PublishJointState()
+{
+    sensor_msgs::msg::JointState msg;
+    if (!this->GetJointStateSnapshot(msg.name, msg.position, msg.velocity)) return;
+    msg.header.stamp = ros2_node->now();
+    this->joint_state_publisher->publish(msg);
+}
+#endif
+
 void RL_Sim::RobotControl()
 {
     this->AppJoyTick();
     this->GetState(&this->robot_state);
+#if defined(USE_ROS2)
+    this->JointStateTick();
+#endif
 
     this->StateController(&this->robot_state, &this->robot_command);
 
