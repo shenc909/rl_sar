@@ -6,7 +6,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, TextSubstitution, Command
+from launch.substitutions import LaunchConfiguration, TextSubstitution, Command, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -17,7 +17,11 @@ def generate_launch_description():
     gui = LaunchConfiguration("gui")
     use_joy = LaunchConfiguration("use_joy")
 
-    wname = "stairs"
+    # world: a name in rl_sar/worlds (default "stairs") or a path to a .world file
+    world = LaunchConfiguration("world")
+    worlds_dir = os.path.join(get_package_share_directory("rl_sar"), "worlds")
+    world_path = PythonExpression(["'", world, "' if '", world, "'.endswith('.world') else '",
+                                   worlds_dir, "/' + '", world, "' + '.world'"])
     robot_name = ParameterValue(Command(["echo -n ", rname]), value_type=str)
     ros_namespace = ParameterValue(Command(["echo -n ", "/", rname, "_gazebo"]), value_type=str)
     gazebo_model_name = ParameterValue(Command(["echo -n ", rname, "_gazebo"]), value_type=str)
@@ -48,7 +52,7 @@ def generate_launch_description():
         launch_arguments={
             # "verbose": "true",
             # "pause": "true",  # Not Available
-            "world": os.path.join(get_package_share_directory("rl_sar"), "worlds", wname + ".world"),
+            "world": world_path,
             # gui:=false runs gzserver headless. Useful when gzclient hangs at startup
             # with a game controller plugged in (a Gazebo-Classic GUI + joystick issue).
             "gui": gui,
@@ -173,6 +177,11 @@ def generate_launch_description():
             "rname",
             description="Robot name (e.g., a1, go2)",
             default_value=TextSubstitution(text=""),
+        ),
+        DeclareLaunchArgument(
+            "world",
+            description="Gazebo world: a name in rl_sar/worlds or a path to a .world file",
+            default_value="stairs",
         ),
         DeclareLaunchArgument(
             "bev_lidar",
