@@ -292,6 +292,14 @@ public:
     // GetState(); any thread can read it with GetJointStateSnapshot(), in base.yaml joint_names order (the
     // URDF's joint names). Returns false until the first tick or if base.yaml has no joint_names.
     void JointStateTick();
+    // Navigation mode (velocity commands from /cmd_vel instead of the sticks) is toggled by X / N on the control
+    // thread; other threads (e.g. a set_navigation_mode service) ask for a value with RequestNavigationMode, which
+    // NavigationModeTick applies at the start of the next control tick. NavigationMode() is safe from any thread.
+    void RequestNavigationMode(bool enabled);
+    void NavigationModeTick();  // call at the start of every control tick, before StateController
+    bool NavigationMode() const { return this->navigation_mode_snapshot.load(); }
+    std::atomic<int> navigation_mode_request{-1};  // -1 none, 0 off, 1 on
+    std::atomic<bool> navigation_mode_snapshot{false};
     bool GetJointStateSnapshot(std::vector<std::string> &names, std::vector<double> &position, std::vector<double> &velocity);
     std::mutex joint_state_mutex;  // guards the three vectors below
     std::vector<std::string> joint_state_names;

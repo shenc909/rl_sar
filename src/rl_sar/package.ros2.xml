@@ -32,10 +32,11 @@
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">joint_state_controller</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_state_publisher</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">robot_joint_controller</depend>
-    <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">std_srvs</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">rclpy</depend>
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'gazebo'">rospy</depend>
 
+    <!-- std_srvs: rl_sim's Gazebo services, and every ROS 2 binary's set_navigation_mode. -->
+    <depend>std_srvs</depend>
     <!-- sensor_msgs is needed by rl_real_go2_ros2 and rl_real_quickbot. -->
     <depend condition="$TARGET_ROBOT == '' or $TARGET_ROBOT == 'go2' or $TARGET_ROBOT == 'quickbot'">sensor_msgs</depend>
 

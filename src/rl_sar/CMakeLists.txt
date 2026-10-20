@@ -523,6 +523,7 @@ endif()
 if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
    AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "go2"))
     find_package(sensor_msgs REQUIRED)
+    find_package(std_srvs REQUIRED)
     find_package(unitree_go REQUIRED)
     find_package(unitree_hg REQUIRED)
     find_package(unitree_api REQUIRED)
@@ -538,6 +539,7 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         geometry_msgs
         sensor_msgs
         std_msgs
+        std_srvs
         unitree_go
         unitree_hg
         unitree_api
@@ -550,6 +552,7 @@ endif()
 if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "foxy|humble"
    AND (TARGET_ROBOT STREQUAL "" OR TARGET_ROBOT STREQUAL "quickbot"))
     find_package(sensor_msgs REQUIRED)
+    find_package(std_srvs REQUIRED)
     find_package(quickbot_interface REQUIRED)
 
     add_executable(rl_real_quickbot src/rl_real_quickbot.cpp)
@@ -563,6 +566,7 @@ if(SYSTEM_TYPE STREQUAL "Linux" AND NOT USE_CMAKE AND $ENV{ROS_DISTRO} MATCHES "
         geometry_msgs
         sensor_msgs
         std_msgs
+        std_srvs
         robot_msgs
         quickbot_interface
     )

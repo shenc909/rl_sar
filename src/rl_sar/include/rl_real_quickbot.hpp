@@ -26,6 +26,8 @@
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 
 #include "quickbot_interface/msg/motor_feedback.hpp"
@@ -138,6 +140,13 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher;
     rclcpp::TimerBase::SharedPtr joint_state_timer;
     void PublishJointState();
+    // Navigation mode for other nodes (e.g. the Clara Control app's navigation button, via clara_relay): latched
+    // std_msgs/Bool on <ns>navigation_mode, published on change, and std_srvs/SetBool <ns>set_navigation_mode.
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr navigation_mode_publisher;
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr navigation_mode_service;
+    rclcpp::TimerBase::SharedPtr navigation_mode_timer;
+    int navigation_mode_published = -1;  // last value published, -1 = none yet (ROS executor thread only)
+    void PublishNavigationMode();
 };
 
 #endif // RL_REAL_QUICKBOT_HPP

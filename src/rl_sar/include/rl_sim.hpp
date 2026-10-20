@@ -48,6 +48,8 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/empty.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <rcl_interfaces/srv/get_parameters.hpp>
 #endif
 
@@ -131,6 +133,13 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_publisher;
     rclcpp::TimerBase::SharedPtr joint_state_timer;
     void PublishJointState();
+    // Navigation mode for other nodes (e.g. the Clara Control app's navigation button, via clara_relay): latched
+    // std_msgs/Bool on <ns>navigation_mode, published on change, and std_srvs/SetBool <ns>set_navigation_mode.
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr navigation_mode_publisher;
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr navigation_mode_service;
+    rclcpp::TimerBase::SharedPtr navigation_mode_timer;
+    int navigation_mode_published = -1;  // last value published, -1 = none yet (ROS executor thread only)
+    void PublishNavigationMode();
     void GazeboImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg);

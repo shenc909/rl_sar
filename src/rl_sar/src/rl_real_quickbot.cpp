@@ -102,6 +102,19 @@ RL_Real::RL_Real(int argc, char **argv)
         "/rl_sar/joint_states", rclcpp::QoS(10));
     this->joint_state_timer = ros2_node->create_wall_timer(
         std::chrono::milliseconds(10), [this] { this->PublishJointState(); });
+    // Navigation mode: latched state + set service (e.g. for the Clara Control app's navigation button).
+    this->navigation_mode_publisher = ros2_node->create_publisher<std_msgs::msg::Bool>(
+        std::string("/") + "navigation_mode", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+    this->navigation_mode_timer = ros2_node->create_wall_timer(
+        std::chrono::milliseconds(50), [this] { this->PublishNavigationMode(); });
+    this->navigation_mode_service = ros2_node->create_service<std_srvs::srv::SetBool>(
+        std::string("/") + "set_navigation_mode",
+        [this] (const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res) {
+            this->RequestNavigationMode(req->data);
+            res->success = true;
+            res->message = std::string("Navigation mode ") + (req->data ? "on" : "off");
+        });
 
     // FSM state-change service.
     this->fsm_set_state_service = ros2_node->create_service<robot_msgs::srv::SetFsmState>(
@@ -248,6 +261,16 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
     this->motor_setpoints_publisher->publish(this->motor_setpoints_msg);
 }
 
+void RL_Real::PublishNavigationMode()
+{
+    const int mode = this->NavigationMode() ? 1 : 0;
+    if (mode == this->navigation_mode_published) return;
+    std_msgs::msg::Bool msg;
+    msg.data = (mode == 1);
+    this->navigation_mode_publisher->publish(msg);
+    this->navigation_mode_published = mode;
+}
+
 void RL_Real::PublishJointState()
 {
     sensor_msgs::msg::JointState msg;
@@ -259,6 +282,7 @@ void RL_Real::PublishJointState()
 void RL_Real::RobotControl()
 {
     this->AppJoyTick();
+    this->NavigationModeTick();
     this->GetState(&this->robot_state);
     this->JointStateTick();
 

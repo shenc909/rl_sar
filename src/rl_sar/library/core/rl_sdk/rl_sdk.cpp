@@ -815,6 +815,23 @@ void RL::JointStateTick()
     this->joint_state_velocity.swap(velocity);
 }
 
+void RL::RequestNavigationMode(bool enabled)
+{
+    this->navigation_mode_request.store(enabled ? 1 : 0);
+}
+
+void RL::NavigationModeTick()
+{
+    const int request = this->navigation_mode_request.exchange(-1);
+    if (request >= 0 && this->control.navigation_mode != (request == 1))
+    {
+        this->control.navigation_mode = (request == 1);
+        std::cout << std::endl << LOGGER::INFO << "Navigation mode: " << (this->control.navigation_mode ? "ON" : "OFF") << std::endl;
+    }
+    // Last tick's X / N toggle shows up here too, one tick (a few ms) late.
+    this->navigation_mode_snapshot.store(this->control.navigation_mode);
+}
+
 bool RL::GetJointStateSnapshot(std::vector<std::string> &names, std::vector<double> &position, std::vector<double> &velocity)
 {
     std::lock_guard<std::mutex> lock(this->joint_state_mutex);
