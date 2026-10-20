@@ -703,6 +703,96 @@ std::vector<T> ReadVectorFromYaml(const YAML::Node &node)
     return values;
 }
 
+namespace
+{
+int64_t SteadyNowNs()
+{
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// Resolves SDL GameController buttons to one gamepad command with the same precedence as
+// rl_sim's /joy callback: the last match wins, so combos beat singles and LB+RB beats all.
+Input::Gamepad ResolveSdlGamepad(const std::vector<int> &buttons)
+{
+    using G = Input::Gamepad;
+    enum : size_t { A = 0, B = 1, X = 2, Y = 3, LS = 7, RS = 8, LB = 9, RB = 10, UP = 11, DOWN = 12, LEFT = 13, RIGHT = 14 };
+    auto btn = [&](size_t i) { return i < buttons.size() && buttons[i] != 0; };
+    static const std::vector<std::pair<size_t, G>> singles = {
+        {A, G::A}, {B, G::B}, {X, G::X}, {Y, G::Y}, {LB, G::LB}, {RB, G::RB}, {LS, G::LStick}, {RS, G::RStick},
+        {UP, G::DPadUp}, {DOWN, G::DPadDown}, {LEFT, G::DPadLeft}, {RIGHT, G::DPadRight}};
+    static const std::vector<std::pair<size_t, G>> lb_combos = {
+        {A, G::LB_A}, {B, G::LB_B}, {X, G::LB_X}, {Y, G::LB_Y}, {LS, G::LB_LStick}, {RS, G::LB_RStick},
+        {UP, G::LB_DPadUp}, {DOWN, G::LB_DPadDown}, {LEFT, G::LB_DPadLeft}, {RIGHT, G::LB_DPadRight}};
+    static const std::vector<std::pair<size_t, G>> rb_combos = {
+        {A, G::RB_A}, {B, G::RB_B}, {X, G::RB_X}, {Y, G::RB_Y}, {LS, G::RB_LStick}, {RS, G::RB_RStick},
+        {UP, G::RB_DPadUp}, {DOWN, G::RB_DPadDown}, {LEFT, G::RB_DPadLeft}, {RIGHT, G::RB_DPadRight}};
+
+    G result = G::None;
+    for (const auto &entry : singles) if (btn(entry.first)) result = entry.second;
+    if (btn(LB)) for (const auto &entry : lb_combos) if (btn(entry.first)) result = entry.second;
+    if (btn(RB)) for (const auto &entry : rb_combos) if (btn(entry.first)) result = entry.second;
+    if (btn(LB) && btn(RB)) result = G::LB_RB;
+    return result;
+}
+}  // namespace
+
+void RL::AppJoyCallback(const std::vector<float> &axes, const std::vector<int> &buttons)
+{
+    auto axis = [&](size_t i) { return i < axes.size() ? axes[i] : 0.0f; };
+
+    if (!this->app_joy_active.load())
+    {
+        // Fresh start: a button already held when the app (re)appears counts as a new press.
+        this->app_joy_last_combo = Input::Gamepad::None;
+        std::cout << LOGGER::INFO << "[AppJoy] /joy_app active, app has the sticks" << std::endl;
+    }
+    const Input::Gamepad combo = ResolveSdlGamepad(buttons);
+    if (combo != this->app_joy_last_combo && combo != Input::Gamepad::None)
+    {
+        this->app_joy_pending_combo.store(static_cast<int>(combo));
+    }
+    this->app_joy_last_combo = combo;
+
+    std::vector<float> scale;
+    {
+        std::lock_guard<std::mutex> lock(this->app_joy_params_mutex);
+        scale = this->app_joy_scale;
+    }
+    this->control.x = axis(1) * scale[1];    // LY
+    this->control.y = axis(0) * scale[0];    // LX
+    this->control.yaw = axis(2) * scale[2];  // RX
+    this->app_joy_height_axis.store(axis(3)); // RY: integrated by UpdateHeightCommand
+    this->app_joy_last_ns.store(SteadyNowNs());
+    this->app_joy_active.store(true);
+}
+
+void RL::AppJoyTick()
+{
+    const auto pending = static_cast<Input::Gamepad>(
+        this->app_joy_pending_combo.exchange(static_cast<int>(Input::Gamepad::None)));
+    if (pending != Input::Gamepad::None)
+    {
+        this->control.SetGamepad(pending);
+    }
+
+    if (!this->app_joy_active.load()) return;
+    float timeout;
+    {
+        std::lock_guard<std::mutex> lock(this->app_joy_params_mutex);
+        timeout = this->app_joy_timeout;
+    }
+    if (SteadyNowNs() - this->app_joy_last_ns.load() > static_cast<int64_t>(timeout * 1e9))
+    {
+        this->app_joy_active.store(false);
+        this->control.x = 0.0f;
+        this->control.y = 0.0f;
+        this->control.yaw = 0.0f;
+        this->app_joy_height_axis.store(0.0f);
+        std::cout << LOGGER::WARNING << "[AppJoy] No /joy_app for " << timeout << " s, sticks zeroed" << std::endl;
+    }
+}
+
 void RL::ReadYaml(const std::string& file_path, const std::string& file_name)
 {
     std::string config_path = std::string(POLICY_DIR) + "/" + file_path + "/" + file_name;
@@ -726,6 +816,14 @@ void RL::ReadYaml(const std::string& file_path, const std::string& file_name)
     if (file_name == "base.yaml")
     {
         this->physical_joint_names = this->params.Get<std::vector<std::string>>("joint_names");
+    }
+
+    {
+        auto scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+        scale.resize(4, 1.0f);
+        std::lock_guard<std::mutex> lock(this->app_joy_params_mutex);
+        this->app_joy_scale = scale;
+        this->app_joy_timeout = this->params.Get<float>("app_joy_timeout", 0.5f);
     }
 }
 

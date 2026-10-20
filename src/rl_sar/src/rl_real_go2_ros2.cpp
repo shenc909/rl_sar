@@ -67,6 +67,11 @@ RL_Real::RL_Real(int argc, char **argv)
         TOPIC_JOYSTICK, rclcpp::SystemDefaultsQoS(),
         std::bind(&RL_Real::JoystickHandler, this, std::placeholders::_1)
     );
+    // Clara Control app joystick (see RL::AppJoyCallback). Best effort: it is a 50 Hz stream.
+    this->app_joy_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Joy>(
+        "/joy_app", rclcpp::SensorDataQoS(),
+        [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->AppJoyCallback(msg->axes, msg->buttons);}
+    );
 
     // cmd_vel subscriber
     this->cmd_vel_subscriber = ros2_node->create_subscription<geometry_msgs::msg::Twist>(
@@ -311,10 +316,13 @@ void RL_Real::GetState(RobotState<float> *state)
     if (this->unitree_joy.components.R1 && this->unitree_joy.components.right) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if (this->unitree_joy.components.L1 && this->unitree_joy.components.R1) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
-    auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
-    this->control.x = this->joystick.ly * joystick_scale[1];    // LY
-    this->control.y = -this->joystick.lx * joystick_scale[0];   // LX
-    this->control.yaw = -this->joystick.rx * joystick_scale[2]; // RX
+    if (!this->AppJoyActive())  // the app owns the sticks while /joy_app is live
+    {
+        auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
+        this->control.x = this->joystick.ly * joystick_scale[1];    // LY
+        this->control.y = -this->joystick.lx * joystick_scale[0];   // LX
+        this->control.yaw = -this->joystick.rx * joystick_scale[2]; // RX
+    }
 
     state->imu.quaternion[0] = this->unitree_low_state.imu_state.quaternion[0]; // w
     state->imu.quaternion[1] = this->unitree_low_state.imu_state.quaternion[1]; // x
@@ -351,6 +359,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
 
 void RL_Real::RobotControl()
 {
+    this->AppJoyTick();
     this->GetState(&this->robot_state);
 
     this->StateController(&this->robot_state, &this->robot_command);
@@ -394,7 +403,8 @@ void RL_Real::RunModel()
         else
         {
             // RY recenters, so it drives the rate of change of the held height setpoint.
-            this->UpdateHeightCommand(this->joystick.ry, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+            const float height_axis = this->AppJoyActive() ? this->AppJoyHeightAxis() : this->joystick.ry;
+            this->UpdateHeightCommand(height_axis, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
         }
         this->obs.height_cmd = {this->control.height};
 

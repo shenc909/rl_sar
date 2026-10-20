@@ -83,6 +83,7 @@ private:
     rclcpp::Subscription<quickbot_interface::msg::MotorFeedback>::SharedPtr motor_feedback_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber;
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber;
+    rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr app_joy_subscriber;
     void MotorFeedbackCallback(const quickbot_interface::msg::MotorFeedback::SharedPtr msg);
     void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);

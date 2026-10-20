@@ -137,6 +137,11 @@ RL_Sim::RL_Sim(int argc, char **argv)
         "/joy", rclcpp::SystemDefaultsQoS(),
         [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->JoyCallback(msg);}
     );
+    // Clara Control app joystick (see RL::AppJoyCallback). Best effort: it is a 50 Hz stream.
+    this->app_joy_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Joy>(
+        "/joy_app", rclcpp::SensorDataQoS(),
+        [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->AppJoyCallback(msg->axes, msg->buttons);}
+    );
     this->cmd_height_subscriber = ros2_node->create_subscription<std_msgs::msg::Float32>(
         "/cmd_height", rclcpp::SystemDefaultsQoS(),
         [this] (const std_msgs::msg::Float32::SharedPtr msg) {this->CmdHeightCallback(msg);}
@@ -391,6 +396,7 @@ void RL_Sim::SetCommand(const RobotCommand<float> *command)
 
 void RL_Sim::RobotControl()
 {
+    this->AppJoyTick();
     this->GetState(&this->robot_state);
 
     this->StateController(&this->robot_state, &this->robot_command);
@@ -539,6 +545,7 @@ void RL_Sim::JoyCallback(
     if (btn(10) && btn(14)) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if (btn(9) && btn(10))  this->control.SetGamepad(Input::Gamepad::LB_RB);
 
+    if (this->AppJoyActive()) return;  // the app owns the sticks while /joy_app is live
     auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
     this->control.x = axis(1) * joystick_scale[1]; // LY
     this->control.y = axis(0) * joystick_scale[0]; // LX
@@ -622,7 +629,8 @@ void RL_Sim::RunModel()
                 this->SetHeightCommand(this->control.height + key_steps * this->params.Get<float>("height_cmd_key_step", 0.05f));
             }
             // RY recenters, so it drives the rate of change of the held height setpoint.
-            this->UpdateHeightCommand(this->joy_height_axis, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+            const float height_axis = this->AppJoyActive() ? this->AppJoyHeightAxis() : this->joy_height_axis;
+            this->UpdateHeightCommand(height_axis, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
         }
         this->obs.height_cmd = {this->control.height};
         this->obs.base_quat = this->robot_state.imu.quaternion;

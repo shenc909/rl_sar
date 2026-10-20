@@ -25,6 +25,7 @@
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <sensor_msgs/msg/joy.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <array>
@@ -126,6 +127,7 @@ private:
     rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr lowstate_subscriber;
     unitree_go::msg::LowState low_state_msg{};
     rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr joystick_subscriber;
+    rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr app_joy_subscriber;
     unitree_go::msg::WirelessController joystick_msg{};
     xKeySwitchUnion unitree_joy;
 

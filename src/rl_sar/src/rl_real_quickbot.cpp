@@ -65,6 +65,11 @@ RL_Real::RL_Real(int argc, char **argv)
         TOPIC_JOY, rclcpp::SystemDefaultsQoS(),
         [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->JoyCallback(msg);}
     );
+    // Clara Control app joystick (see RL::AppJoyCallback). Best effort: it is a 50 Hz stream.
+    this->app_joy_subscriber = ros2_node->create_subscription<sensor_msgs::msg::Joy>(
+        "/joy_app", rclcpp::SensorDataQoS(),
+        [this] (const sensor_msgs::msg::Joy::SharedPtr msg) {this->AppJoyCallback(msg->axes, msg->buttons);}
+    );
 
     // cmd_vel subscriber
     this->cmd_vel_subscriber = ros2_node->create_subscription<geometry_msgs::msg::Twist>(
@@ -239,6 +244,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
 
 void RL_Real::RobotControl()
 {
+    this->AppJoyTick();
     this->GetState(&this->robot_state);
 
     this->StateController(&this->robot_state, &this->robot_command);
@@ -282,7 +288,8 @@ void RL_Real::RunModel()
         else
         {
             // RY recenters, so it drives the rate of change of the held height setpoint.
-            this->UpdateHeightCommand(this->joy_ry.load(), this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
+            const float height_axis = this->AppJoyActive() ? this->AppJoyHeightAxis() : this->joy_ry.load();
+            this->UpdateHeightCommand(height_axis, this->params.Get<float>("dt") * this->params.Get<int>("decimation"));
         }
         this->obs.height_cmd = {this->control.height};
 
@@ -489,6 +496,7 @@ void RL_Real::JoyCallback(
         std::lock_guard<std::mutex> lock(this->joystick_scale_mutex);
         joystick_scale = this->joystick_scale_cache;
     }
+    if (this->AppJoyActive()) return;  // the app owns the sticks while /joy_app is live
     this->control.x = axis(2) * joystick_scale[1];   // LY
     this->control.y = -axis(3) * joystick_scale[0];   // LX
     this->control.yaw = -axis(0) * joystick_scale[2]; // RX

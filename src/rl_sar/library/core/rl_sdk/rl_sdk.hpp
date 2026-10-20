@@ -6,6 +6,8 @@
 #ifndef RL_SDK_HPP
 #define RL_SDK_HPP
 
+#include <atomic>
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <exception>
@@ -256,6 +258,35 @@ public:
     // Both clamp to "height_cmd_range".
     void UpdateHeightCommand(float stick, float dt);
     void SetHeightCommand(float value);
+
+    // App joystick: sensor_msgs/Joy on /joy_app from the Clara Control app (via clara_relay).
+    // Executables subscribe and forward to AppJoyCallback. SDL GameController layout, the same as
+    // joy/game_controller_node and rl_sim's /joy:
+    //   buttons: A=0 B=1 X=2 Y=3 Back=4 Guide=5 Start=6 LS=7 RS=8 LB=9 RB=10
+    //            DPadUp=11 DPadDown=12 DPadLeft=13 DPadRight=14
+    //   axes:    LX=0 LY=1 RX=2 RY=3 LT=4 RT=5   (ROS signs: left/up positive; triggers unused)
+    // The app streams at a fixed rate (~50 Hz) as a heartbeat, so buttons are edge-triggered: a
+    // gamepad command fires once when the pressed combination changes, not on every message.
+    // While messages keep arriving the app owns the sticks, and other stick sources should stand
+    // down (check AppJoyActive()). If none arrives for "app_joy_timeout" seconds (default 0.5),
+    // AppJoyTick() zeroes the sticks once and hands them back.
+    void AppJoyCallback(const std::vector<float> &axes, const std::vector<int> &buttons);
+    void AppJoyTick();  // call at the start of every control tick, before StateController
+    bool AppJoyActive() const { return this->app_joy_active.load(); }
+    float AppJoyHeightAxis() const { return this->app_joy_height_axis.load(); }  // RY: rate input for UpdateHeightCommand
+    std::atomic<bool> app_joy_active{false};
+    std::atomic<float> app_joy_height_axis{0.0f};
+    std::atomic<int64_t> app_joy_last_ns{0};
+    Input::Gamepad app_joy_last_combo = Input::Gamepad::None;  // AppJoyCallback thread only
+    // A new press is handed to the control thread via AppJoyTick rather than set directly: a
+    // SetGamepad landing between StateController and ClearInput would be wiped unseen, and with
+    // edge triggering there is no repeat to make up for it.
+    std::atomic<int> app_joy_pending_combo{static_cast<int>(Input::Gamepad::None)};
+    // joystick_scale / app_joy_timeout cached by ReadYaml: AppJoyCallback runs on the ROS executor
+    // thread while a policy switch may be rebuilding params.
+    std::mutex app_joy_params_mutex;
+    std::vector<float> app_joy_scale{1.0f, 1.0f, 1.0f, 1.0f};
+    float app_joy_timeout = 0.5f;
     // Velocity command preprocessing between obs.commands and the "commands" observation (see
     // command_shaper.hpp). Configured from the "command_*" / "max_lateral_accel" config keys and reset
     // on every policy load, so each policy entry starts the rate limiter from rest.
