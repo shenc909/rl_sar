@@ -774,6 +774,7 @@ void RL::AppJoyTick()
     if (pending != Input::Gamepad::None)
     {
         this->control.SetGamepad(pending);
+        std::cout << LOGGER::INFO << "[AppJoy] " << Input::GamepadName(pending) << std::endl;
     }
 
     if (!this->app_joy_active.load()) return;

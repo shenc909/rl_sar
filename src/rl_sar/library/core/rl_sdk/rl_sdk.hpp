@@ -112,6 +112,18 @@ namespace Input
         RB_A, RB_B, RB_X, RB_Y, RB_LStick, RB_RStick, RB_DPadUp, RB_DPadDown, RB_DPadLeft, RB_DPadRight,
         LB_RB
     };
+
+    inline const char *GamepadName(Gamepad gamepad)
+    {
+        static const char *const names[] = {
+            "None",
+            "A", "B", "X", "Y", "LB", "RB", "LStick", "RStick", "DPadUp", "DPadDown", "DPadLeft", "DPadRight",
+            "LB_A", "LB_B", "LB_X", "LB_Y", "LB_LStick", "LB_RStick", "LB_DPadUp", "LB_DPadDown", "LB_DPadLeft", "LB_DPadRight",
+            "RB_A", "RB_B", "RB_X", "RB_Y", "RB_LStick", "RB_RStick", "RB_DPadUp", "RB_DPadDown", "RB_DPadLeft", "RB_DPadRight",
+            "LB_RB"};
+        const auto i = static_cast<size_t>(gamepad);
+        return i < sizeof(names) / sizeof(names[0]) ? names[i] : "?";
+    }
 }
 
 struct Control
@@ -271,7 +283,9 @@ public:
     // down (check AppJoyActive()). If none arrives for "app_joy_timeout" seconds (default 0.5),
     // AppJoyTick() zeroes the sticks once and hands them back.
     void AppJoyCallback(const std::vector<float> &axes, const std::vector<int> &buttons);
-    void AppJoyTick();  // call at the start of every control tick, before StateController
+    // Call every control tick before StateController, and after any other source of gamepad commands
+    // (e.g. a robot's own remote in GetState), so an app press wins the tick it lands in.
+    void AppJoyTick();
     bool AppJoyActive() const { return this->app_joy_active.load(); }
     float AppJoyHeightAxis() const { return this->app_joy_height_axis.load(); }  // RY: rate input for UpdateHeightCommand
     std::atomic<bool> app_joy_active{false};

@@ -335,6 +335,16 @@ void RL_Real::GetState(RobotState<float> *state)
     if (this->unitree_joy.components.R1 && this->unitree_joy.components.right) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
     if (this->unitree_joy.components.L1 && this->unitree_joy.components.R1) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
+    // The remote's keys are the last message received, which persists, and apply every tick while held, so
+    // log when they change: a key held (or left set) here repeats its command and can mask other input.
+    // ClearInput ran at the end of the last tick, so current_gamepad is the remote's command alone here.
+    if (this->control.current_gamepad != this->unitree_joy_last_command)
+    {
+        std::cout << LOGGER::INFO << "[UnitreeJoy] " << Input::GamepadName(this->control.current_gamepad)
+                  << " (keys 0x" << std::hex << this->unitree_joy.value << std::dec << ")" << std::endl;
+        this->unitree_joy_last_command = this->control.current_gamepad;
+    }
+
     if (!this->AppJoyActive())  // the app owns the sticks while /joy_app is live
     {
         auto joystick_scale = this->params.Get<std::vector<float>>("joystick_scale", {1.0f, 1.0f, 1.0f, 1.0f});
@@ -396,9 +406,9 @@ void RL_Real::PublishJointState()
 
 void RL_Real::RobotControl()
 {
-    this->AppJoyTick();
     this->NavigationModeTick();
     this->GetState(&this->robot_state);
+    this->AppJoyTick();  // after GetState: an app press overrides the Unitree remote's keys this tick
     this->JointStateTick();
 
     this->StateController(&this->robot_state, &this->robot_command);

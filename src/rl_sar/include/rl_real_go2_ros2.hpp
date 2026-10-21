@@ -139,6 +139,8 @@ private:
     std::vector<float> mapped_joint_velocities;
     double last_cmd_vel_time = 0.0;
     bool prev_joy_x_pressed = false;
+    // Gamepad command from the Unitree remote's keys in the last GetState, for logging changes (control thread).
+    Input::Gamepad unitree_joy_last_command = Input::Gamepad::None;
     double last_height_scan_time = 0.0;
 
     // Float32MultiArray elevation-map path (used by configs whose height_scan_source
