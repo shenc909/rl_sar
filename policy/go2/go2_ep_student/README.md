@@ -1,6 +1,19 @@
 # go2_ep_student
 
-Extreme Parkour Go2 Student (`922-10` / `model_59500`) policy slot for `rest271828/rl_sar`.
+Extreme Parkour Go2 Student policy slot for `rest271828/rl_sar`.
+Active checkpoint: `936-19-GO2-QD59-D435I-LR3E4` @ 73000 (D435i head mount, Kp 25 / Kd 0.6). See `WEIGHTS.md`.
+The sections below were written for the older `922-10` / `model_59500` and are kept for reference.
+
+## Real robot (936 @ 73000)
+
+1. Camera: D435i depth 848x480 @ >= 30 Hz on the Jetson; trained mount pitch 25.5-29.5 deg.
+   The 2026-11-06 floor depth logs fit to ~35-37 deg camera-to-ground pitch at stand: measure before testing.
+2. Jetson: `python3 -u ~/jetson_depth_tcp_bridge.py --bind 0.0.0.0 --port 9876` (see script header for ROS env).
+3. Laptop: `RL_SAR_GO2_CONFIG=go2_ep_student RL_SAR_EP_DEPTH_HOST=192.168.123.18 ./cmake_build/bin/rl_real_go2 <iface>`
+   (no rebuild needed for a weight swap; `RL_SAR_DRY_RUN=1` first to check depth/obs without sending lowcmd).
+4. Gamepad: A = stand up, R1+Up = policy, B = get down, L1+X = passive (e-stop).
+5. Command: left stick forward. `cmd_x = ly`, so full forward = 1.0 m/s (trained 0.8-1.2). Start ~2-2.5 m in front of the
+   platform, facing it (sim2sim used 2.5 m). Stop the policy (B) after the climb: there are no waypoints past the course, heading drifts.
 
 Does **not** replace `himloco` / `robot_lab`.
 
